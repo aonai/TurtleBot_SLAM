@@ -4,4 +4,4 @@
 
 # Package List
 This repository consists of several ROS packages
-- <PACKAGE1> - one sentence description
+- nuturtle_description - Package contianing urdf files and code for the robot.
