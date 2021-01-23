@@ -2,7 +2,7 @@
 #include <limits>
 #include <cmath>
 #include <cstring>
-#include "rigid2d.hpp"
+#include "../include/rigid2d/rigid2d.hpp"
 
 namespace rigid2d {
 
@@ -27,6 +27,40 @@ namespace rigid2d {
         else {
             is >> v.x;
             is >> v.y;
+        }
+
+        return is;
+    }
+
+    std::ostream & operator<<(std::ostream & os, const NormalVector2D & u) 
+    { 
+        os << '[' << u.ux << ' ' << u.uy << ']';
+        return os;
+    }
+
+    std::ostream & operator<<(std::ostream & os, const Twist2D & t) 
+    { 
+        os << '[' << t.omg << ' ' << t.vx << ' ' << t.vy << ']';
+        return os;
+    }
+
+    std::istream & operator>>(std::istream & is, Twist2D & t)
+    {   
+        bool ignore = false;
+        if (is.peek()=='['){
+            ignore = true; 
+        }
+        if (ignore) {
+            is.ignore(std::numeric_limits<std::streamsize>::max(), '[');
+            is >> t.omg;
+            is >> t.vx;
+            is >> t.vy;
+            is.ignore(std::numeric_limits<std::streamsize>::max(), ']');
+        }
+        else {
+            is >> t.omg;
+            is >> t.vx;
+            is >> t.vy;
         }
 
         return is;
@@ -64,6 +98,16 @@ namespace rigid2d {
         Vector2D toReturn{};
         toReturn.x = mat[0][0]*v.x + mat[0][1]*v.y + mat[0][2];
         toReturn.y = mat[1][0]*v.x + mat[1][1]*v.y + mat[1][2];
+        return toReturn;
+    }
+
+    Twist2D Transform2D::operator()(Twist2D t) const{
+        Twist2D toReturn{};
+
+        toReturn.omg = t.omg;
+        toReturn.vx = mat[1][2]*t.omg + mat[0][0]*t.vx + mat[0][1]*t.vy;
+        toReturn.vy = -1*mat[0][2]*t.omg + mat[1][0]*t.vx + mat[1][1]*t.vy;
+
         return toReturn;
     }
 
@@ -118,16 +162,16 @@ namespace rigid2d {
     }
 
     std::ostream & operator<<(std::ostream & os, const Transform2D & tf) {
-        os << "dtheta (degrees): " << tf.rad << " dx: " << tf.tran.x << " dy: " << tf.tran.y << std::endl;
-        os << "mat = " << std::endl;
-        for (int i = 0; i < 3; ++i)
-        {
-            for (int j = 0; j < 3; ++j)
-            {
-                os << tf.mat[i][j] << ' ';
-            }
-            os << std::endl;
-        }
+        os << "dtheta (degrees): " << tf.rad << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
+        // os << "mat = " << std::endl;
+        // for (int i = 0; i < 3; ++i)
+        // {
+        //     for (int j = 0; j < 3; ++j)
+        //     {
+        //         os << tf.mat[i][j] << ' ';
+        //     }
+        //     os << std::endl;
+        // }
         return os;
     }
     
@@ -167,6 +211,11 @@ namespace rigid2d {
     Transform2D operator*(Transform2D lhs, const Transform2D & rhs){
         return lhs*=rhs;
     }
+
+    NormalVector2D normalize(Vector2D v) {
+        return NormalVector2D {v.x/sqrt(v.x*v.x+v.y*v.y), v.y/sqrt(v.x*v.x+v.y*v.y)};;
+    }
+
 
 
 }

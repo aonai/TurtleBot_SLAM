@@ -82,6 +82,39 @@ namespace rigid2d
     /// https://en.cppreference.com/w/cpp/io/basic_istream/get
     std::istream & operator>>(std::istream & is, Vector2D & v);
 
+    /// \brief A 2-Dimensional Vector
+    struct NormalVector2D
+    {
+        double ux = 0.0;
+        double uy = 0.0;
+    };
+
+    /// \brief output a 2 dimensional normal vector as [xcomponent ycomponent]
+    /// os - stream to output to
+    /// v - the vector to print
+    std::ostream & operator<<(std::ostream & os, const NormalVector2D & u);
+
+   /// \brief A 2-Dimensional Twist
+    struct Twist2D
+    {
+        double omg = 0.0;
+        double vx = 0.0;
+        double vy = 0.0;
+    };
+
+    /// \brief output a 2 dimensional twist as [omg_z x_velocity y_velocity]
+    /// os - stream to output to
+    /// t - the twist to print
+    std::ostream & operator<<(std::ostream & os, const Twist2D & t);
+
+    /// \brief input a 2 dimensional twist
+    ///   You should be able to read twists entered as two numbers
+    ///   separated by a newline or a space, or entered as [omg_z x_velocity y_velocity]
+    /// is - stream from which to read
+    /// t [out] - output twist
+    std::istream & operator>>(std::istream & is, Twist2D & t);
+
+
     /// \brief a rigid body transformation in 2 dimensions
     class Transform2D
     {
@@ -113,6 +146,11 @@ namespace rigid2d
         /// \param v - the vector to transform
         /// \return a vector in the new coordinate system
         Vector2D operator()(Vector2D v) const;
+
+        /// \brief apply a transformation to a Twist2D
+        /// \param t - the twist to transform
+        /// \return a twist in the new coordinate system
+        Twist2D operator()(Twist2D t) const;
 
         /// \brief invert the transformation
         /// \return the inverse transformation. 
@@ -161,6 +199,13 @@ namespace rigid2d
     /// \return the composition of the two transforms
     /// HINT: This function should be implemented in terms of *=
     Transform2D operator*(Transform2D lhs, const Transform2D & rhs);
+
+    /// \brief normalize a Vector2D
+    /// \param v - the vector to normalize
+    /// \return the normalized NormalVector2D
+    NormalVector2D normalize(Vector2D v);
+
+
 }
 
 #endif
