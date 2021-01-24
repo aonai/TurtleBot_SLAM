@@ -162,7 +162,7 @@ namespace rigid2d {
     }
 
     std::ostream & operator<<(std::ostream & os, const Transform2D & tf) {
-        os << "dtheta (degrees): " << tf.rad << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
+        os << "dtheta (degrees): " << tf.deg << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
         // os << "mat = " << std::endl;
         // for (int i = 0; i < 3; ++i)
         // {

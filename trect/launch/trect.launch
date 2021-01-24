@@ -1,0 +1,11 @@
+<launch>
+    <node name="turtle1" pkg="turtlesim" type="turtlesim_node" />
+    <remap from="cmd_vel" to="turtle1/cmd_vel" />
+    <remap from="pose" to="turtle1/pose" />
+    <remap from="teleport_absolute" to="turtle1/teleport_absolute" />
+    
+    <param name="max_xdot" value="2.0" type="double"/>
+    <param name="max_wdot" value="1.0" type="double"/>
+    <param name="frequency" value="100" type="int"/>
+    <node name="turtle_rect" pkg="trect" type="turtle_rect"/>
+</launch>
