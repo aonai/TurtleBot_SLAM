@@ -1,5 +1,5 @@
 # Turtle Rect
-* A package that causes the turtlesim turtle to follow a rectangle.
+* A package that causes a turtlesim turtle to follow a rectangle.
 # Example Usage
 ```
 roslaunch trect trect.launch
