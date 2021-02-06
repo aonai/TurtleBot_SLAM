@@ -1,7 +1,5 @@
-#define CATCH_CONFIG_MAIN 
 #include <sstream>
-#include "catch.hpp"
-// #include "../src/rigid2d.cpp"
+#include <catch_ros/catch.hpp>
 #include "../include/rigid2d/rigid2d.hpp"
 
 TEST_CASE( "Test Vector2D struct and operators", "[Vector2D]" ) {
@@ -112,7 +110,7 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
         rigid2d::Transform2D T(rigid2d::Vector2D {1.1, 2.2}, 3.3);
         ss << T;
         std::string str =  ss.str();
-        std::string cmp ("dtheta (degrees): 3.3 dx: 1.1 dy: 2.2");
+        std::string cmp ("dtheta (degrees): 189.076 dx: 1.1 dy: 2.2");
         REQUIRE( str == cmp );
     }
 
