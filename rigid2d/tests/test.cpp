@@ -1,6 +1,7 @@
 #include <sstream>
 #include <catch_ros/catch.hpp>
 #include "../include/rigid2d/rigid2d.hpp"
+#include "../include/rigid2d/diff_drive.hpp"
 
 TEST_CASE( "Test Vector2D struct and operators", "[Vector2D]" ) {
     std::stringstream ss;
@@ -233,8 +234,8 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
 
         result = T1.integrateTwist(t);
         REQUIRE(result.theta() == Approx(2.00).epsilon(0.01));
-        REQUIRE(result.x() == Approx(4.73).epsilon(0.01));
-        REQUIRE(result.y() == Approx(0.88).epsilon(0.01));
+        REQUIRE(result.x() == Approx(-0.734).epsilon(0.01));
+        REQUIRE(result.y() == Approx(5.12).epsilon(0.01));
     }
 
     SECTION ( "integrate twist function pure translation" ) {
@@ -268,6 +269,61 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
         result = rigid2d::normalize_angle(rad);
         REQUIRE(result == Approx(-0.2).epsilon(0.01));
     }
+}
 
+TEST_CASE( "Test DiffDrive class and associated struct DiffDriveVel", "[DiffDrive]" ) {
+    SECTION("struct DiffDriveVel") {
+        rigid2d::DiffDriveVel vel {1.1, 2.2};
 
+        REQUIRE(vel.vL == 1.1);
+        REQUIRE(vel.vR == 2.2);
+    }
+
+    SECTION("constructor and functions with pure rotation") {
+        rigid2d::DiffDrive dd(1.0, 1.0);
+        rigid2d::Transform2D config = dd.config();
+        rigid2d::Twist2D t{1, 0, 0};
+        rigid2d::DiffDriveVel vel = dd.vel_from_twist(t);
+        REQUIRE(vel.vL == -1);
+        REQUIRE(vel.vR == 1);
+
+        dd.update(-1, 1);
+        rigid2d::Transform2D updated = dd.config();
+
+        REQUIRE(updated.theta() == Approx(1).epsilon(0.01));
+        REQUIRE(updated.x() == 0);
+        REQUIRE(updated.y() == 0);
+    }
+
+    SECTION("constructor and functions with vel pure translation") {
+        rigid2d::DiffDrive dd(1.0, 1.0);
+        rigid2d::Transform2D config = dd.config();
+        rigid2d::Twist2D t{0, 1, 0};
+        rigid2d::DiffDriveVel vel = dd.vel_from_twist(t);
+        REQUIRE(vel.vL == 1);
+        REQUIRE(vel.vR == 1);
+
+        dd.update(1, 1);
+        rigid2d::Transform2D updated = dd.config();
+
+        REQUIRE(updated.theta() == 0);
+        REQUIRE(updated.x() == 1);
+        REQUIRE(updated.y() == 0);
+    }
+
+    SECTION("constructor and functions") {
+        rigid2d::DiffDrive dd(1.0, 1.0);
+        rigid2d::Transform2D config = dd.config();
+        rigid2d::Twist2D t{1, 1, 0};
+        rigid2d::DiffDriveVel vel = dd.vel_from_twist(t);
+        REQUIRE(vel.vL == 0);
+        REQUIRE(vel.vR == 2);
+
+        dd.update(0, 2);
+        rigid2d::Transform2D updated = dd.config();
+
+        REQUIRE(updated.theta() == Approx(1).epsilon(0.01));
+        REQUIRE(updated.x() == Approx(0.841).epsilon(0.01));
+        REQUIRE(updated.y() == Approx(0.460).epsilon(0.01));
+    }
 }

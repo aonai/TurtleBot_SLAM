@@ -165,28 +165,33 @@ namespace rigid2d {
     }
 
     Transform2D Transform2D::integrateTwist(rigid2d::Twist2D t) {
+        Vector2D new_tran;
+        double new_rad = 0;
         if (t.omg == 0) {
-            this->tran.x += t.vx;
-            this->tran.y += t.vy;
+            new_tran.x = this->tran.x + t.vx;
+            new_tran.y = this->tran.y + t.vy;
+            new_rad = this->rad;
         }
         else if (t.vx == 0 && t.vy == 0) {
-            this->rad += t.omg;
+            new_tran.x = this->tran.x;
+            new_tran.y = this->tran.y;
+            new_rad = this->rad + t.omg;
         }
         else {
             double sy = -t.vx/t.omg;
             double sx = t.vy/t.omg;
-            Vector2D Vbs{sx, sy};
-            Transform2D Tbs(Vbs, 0);
+            Vector2D Vsb{sx, sy};
+            Transform2D Tsb(Vsb, 0);
+            Transform2D Tbs = Tsb.inv();
             Transform2D Tssp(t.omg);
             Transform2D Tbsp = Tbs*Tssp;
-            Transform2D Tbbp = Tbsp*Tbs.inv();
-
-            Transform2D toReturn(this->tran, this->rad);
-            toReturn *= Tbbp;
+            Transform2D Tbbp = Tbsp*Tsb;
+            Transform2D copy(this->tran, this->rad);
+            Transform2D toReturn = copy * Tbbp;
             return toReturn;
         }
 
-        Transform2D toReturn(this->tran, this->rad);
+        Transform2D toReturn(new_tran, new_rad);                  
         return toReturn;
     }
 
@@ -200,12 +205,13 @@ namespace rigid2d {
         }   
 
         Vector2D newV{multMat[0][2], multMat[1][2]};
-        double cosRad = acos(multMat[0][0]);
-        double sinRad = asin(multMat[1][0]);
-        double newRad = cosRad;
-        if (almost_equal(cosRad, -1*sinRad, 1e-2)) {
-            newRad = cosRad*-1;
-        }
+        // double cosRad = acos(multMat[0][0]);
+        // double sinRad = asin(multMat[1][0]);
+        // double newRad = cosRad;
+        // if (almost_equal(cosRad*100, -1*sinRad*100, 1e-3)) {
+        //     newRad = cosRad*-1;
+        // }
+        double newRad = atan2(multMat[1][0], multMat[0][0]);
         this->tran = newV;
         this->rad = newRad;
         this->deg = rad2deg(newRad);

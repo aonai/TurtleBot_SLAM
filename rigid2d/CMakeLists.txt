@@ -9,7 +9,14 @@ project(rigid2d)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
     catch_ros
+    geometry_msgs
+    message_generation
+    nav_msgs
     roscpp
+    sensor_msgs
+    std_msgs
+    tf2
+    tf2_ros
 )
 
 ## System dependencies are found with CMake's conventions
@@ -46,18 +53,16 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  SetPoseMsg.msg
+)
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  SetPose.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -67,10 +72,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -105,7 +110,14 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES rigid2d
  CATKIN_DEPENDS catch_ros
+ CATKIN_DEPENDS geometry_msgs
+ CATKIN_DEPENDS message_runtime
+ CATKIN_DEPENDS nav_msgs
  CATKIN_DEPENDS roscpp
+ CATKIN_DEPENDS sensor_msgs
+ CATKIN_DEPENDS std_msgs
+ CATKIN_DEPENDS tf2
+ CATKIN_DEPENDS tf2_ros
 #  DEPENDS system_lib
 )
 
@@ -122,6 +134,7 @@ ${catkin_INCLUDE_DIRS}
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
+  src/diff_drive.cpp
   src/rigid2d.cpp
 )
 
@@ -133,22 +146,28 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_main src/main.cpp)
+add_executable(${PROJECT_NAME}_odometer src/diff_drive.cpp src/odometer.cpp src/rigid2d.cpp)
+add_executable(${PROJECT_NAME}_fake_turtle src/diff_drive.cpp src/fake_turtle.cpp src/rigid2d.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
-# set_target_properties(${PROJECT_NAME}_main PROPERTIES OUTPUT_NAME main PREFIX "")
+set_target_properties(${PROJECT_NAME}_odometer PROPERTIES OUTPUT_NAME odometer PREFIX "")
+set_target_properties(${PROJECT_NAME}_fake_turtle PROPERTIES OUTPUT_NAME fake_turtle PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(${PROJECT_NAME}_main ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_odometer ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_fake_turtle ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(${PROJECT_NAME}_main
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(${PROJECT_NAME}_odometer
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_fake_turtle
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -166,9 +185,12 @@ add_library(${PROJECT_NAME}
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
-# install(TARGETS ${PROJECT_NAME}_main
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS ${PROJECT_NAME}_odometer
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS ${PROJECT_NAME}_fake_turtle
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark libraries for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_libraries.html
@@ -205,4 +227,4 @@ add_library(${PROJECT_NAME}
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-catch_add_test(${PROJECT_NAME}_test tests/test.cpp src/${PROJECT_NAME}.cpp)
+catch_add_test(${PROJECT_NAME}_test tests/test.cpp src/${PROJECT_NAME}.cpp src/diff_drive.cpp)

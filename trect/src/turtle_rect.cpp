@@ -200,7 +200,6 @@ void Handler::follow_rect() {
 /// \brief Callback function for pose subscriber
 /// \param pose - current pose of turtle
 void Handler::sub_callback(const turtlesim::PoseConstPtr & pose) {
-  /** Callback function for pose subscriber **/
   currentX = pose->x;
   currentY = pose->y;
   currentTheta = pose->theta;
