@@ -5,5 +5,5 @@
 # Package List
 This repository consists of several ROS packages
 - nuturtle_description - Package contianing urdf files and code for the robot.
-- rigid2d - rigid2d library that generates 2-dimensional rigid body transformation.
+- rigid2d - rigid2d library that models 2-dimensional differential drive robot.
 - trect - Make a turtle draw and follow a rectangular trajectory from user inputs.
