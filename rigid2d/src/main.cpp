@@ -1,7 +1,7 @@
 #include <iostream>
 #include "../include/rigid2d/rigid2d.hpp"
 
-
+/**
 int main() {
 
     rigid2d::Transform2D Tab;
@@ -45,6 +45,24 @@ int main() {
     std::cin >> t;
     std::cout << "Twist_" << v_frame << " = " << t << std::endl;
     std::cout << "trasformed twist = " << Tab(t) << std::endl;
+
+    return 0;
+}
+**/
+
+int main() {
+
+    rigid2d::Transform2D Tab;
+    std::cout << "Enter Tab (dtheta dx dy):  ";
+    std::cin >> Tab;
+    std::cout << Tab << std::endl;
+    
+    rigid2d::Twist2D t{};
+    std::cout << "Enter twist [omg vx vy]:  ";
+    std::cin >> t;
+
+    Tab = Tab.integrateTwist(t);
+    std::cout << Tab << std::endl;
 
     return 0;
 }

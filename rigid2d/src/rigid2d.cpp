@@ -6,6 +6,12 @@
 
 namespace rigid2d {
 
+    Vector2D::Vector2D() : x(0.0), y(0.0) {
+    }
+    
+    Vector2D::Vector2D(double x, double y) : x(x), y(y) {
+    }
+
     std::ostream & operator<<(std::ostream & os, const Vector2D & v) 
     { 
         os << '[' << v.x << ' ' << v.y << ']';
@@ -30,6 +36,44 @@ namespace rigid2d {
         }
 
         return is;
+    }
+
+    Vector2D & Vector2D::operator+=(const Vector2D & rhs) {
+        this->x += rhs.x;
+        this->y += rhs.y;
+        return *this;
+    }
+    
+    Vector2D & Vector2D::operator-=(const Vector2D & rhs) {
+        this->x -= rhs.x;
+        this->y -= rhs.y;
+        return *this;
+    }    
+    
+    Vector2D & Vector2D::operator*=(const Vector2D & rhs) {
+        this->x = this->x*rhs.x + this->y*rhs.y;
+        this->y = 0;
+        return *this;
+    }
+
+    Vector2D operator+(Vector2D lhs, const Vector2D & rhs) {
+        return lhs += rhs;
+    }
+
+    Vector2D operator-(Vector2D lhs, const Vector2D & rhs) {
+        return lhs -= rhs;
+    }
+
+    Vector2D operator*(Vector2D lhs, const Vector2D & rhs) {
+        return lhs *= rhs;
+    }
+
+    double magnitude(Vector2D v) {
+        return sqrt(v.x*v.x+v.y*v.y);
+    }
+
+    double angle(Vector2D v) {
+        return atan2(v.y, v.x);
     }
 
     std::ostream & operator<<(std::ostream & os, const NormalVector2D & u) 
@@ -118,6 +162,32 @@ namespace rigid2d {
         double newRad = rad*-1;
         Transform2D inverted(newV, newRad);
         return inverted;
+    }
+
+    Transform2D Transform2D::integrateTwist(rigid2d::Twist2D t) {
+        if (t.omg == 0) {
+            this->tran.x += t.vx;
+            this->tran.y += t.vy;
+        }
+        else if (t.vx == 0 && t.vy == 0) {
+            this->rad += t.omg;
+        }
+        else {
+            double sy = -t.vx/t.omg;
+            double sx = t.vy/t.omg;
+            Vector2D Vbs{sx, sy};
+            Transform2D Tbs(Vbs, 0);
+            Transform2D Tssp(t.omg);
+            Transform2D Tbsp = Tbs*Tssp;
+            Transform2D Tbbp = Tbsp*Tbs.inv();
+
+            Transform2D toReturn(this->tran, this->rad);
+            toReturn *= Tbbp;
+            return toReturn;
+        }
+
+        Transform2D toReturn(this->tran, this->rad);
+        return toReturn;
     }
 
     Transform2D & Transform2D::operator*=(const Transform2D & rhs) {
@@ -216,6 +286,9 @@ namespace rigid2d {
         return NormalVector2D {v.x/sqrt(v.x*v.x+v.y*v.y), v.y/sqrt(v.x*v.x+v.y*v.y)};;
     }
 
+    double normalize_angle(double rad) {
+        return fmod(rad, PI);
+    }
 
 
 }

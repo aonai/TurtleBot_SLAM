@@ -63,8 +63,31 @@ namespace rigid2d
     /// \brief A 2-Dimensional Vector
     struct Vector2D
     {
-        double x = 0.0;
-        double y = 0.0;
+        double x;
+        double y;
+
+        Vector2D();
+        Vector2D(double x, double y);
+
+
+        /// \brief add this vector with another vector and store the result 
+        /// in this object
+        /// \param rhs - the vector to add
+        /// \returns a reference to the new vector 
+        Vector2D & operator+=(const Vector2D & rhs);
+
+        /// \brief subtract this vector with another vector and store the result 
+        /// in this object
+        /// \param rhs - the vector to subtract
+        /// \returns a reference to the new vector 
+        Vector2D & operator-=(const Vector2D & rhs);
+        
+        /// \brief multiply this vector with another vector and store the result 
+        /// in this object
+        /// \param rhs - the vector to multiply
+        /// \returns a reference to the new vector 
+        Vector2D & operator*=(const Vector2D & rhs);
+
     };
 
     /// \brief output a 2 dimensional vector as [xcomponent ycomponent]
@@ -81,6 +104,34 @@ namespace rigid2d
     /// https://en.cppreference.com/w/cpp/io/basic_istream/peek
     /// https://en.cppreference.com/w/cpp/io/basic_istream/get
     std::istream & operator>>(std::istream & is, Vector2D & v);
+
+    /// \brief add two vectors together, returning their addition
+    /// \param lhs - the left hand operand
+    /// \param rhs - the right hand operand
+    /// \return the addition of the two vectors
+    Vector2D operator+(Vector2D lhs, const Vector2D & rhs);
+
+    /// \brief subtract two vectors, returning their subtraction
+    /// \param lhs - the left hand operand
+    /// \param rhs - the right hand operand
+    /// \return the subtraction of the two vectors
+    Vector2D operator-(Vector2D lhs, const Vector2D & rhs);
+   
+    /// \brief multiply two vectors, returning their multiplication
+    /// \param lhs - the left hand operand
+    /// \param rhs - the right hand operand
+    /// \return the multiplication of the two vectors
+    Vector2D operator*(Vector2D lhs, const Vector2D & rhs);
+
+    /// \brief compute the magnitude of a Vector2D
+    /// \param v - the vector to compute magnitude
+    /// \return the magnitude of the vector 
+    double magnitude(Vector2D v);
+
+    /// \brief compute the angle of a Vector2D
+    /// \param v - the vector to compute angle
+    /// \return the angle of the vector in rad
+    double angle(Vector2D v);
 
     /// \brief A 2-Dimensional Vector
     struct NormalVector2D
@@ -156,11 +207,18 @@ namespace rigid2d
         /// \return the inverse transformation. 
         Transform2D inv() const;
 
+
+        /// \brief compute the transformation corresponding to a rigid body 
+        /// following a constant twist for one time unit
+        /// \returns a reference to the new transformation 
+        Transform2D integrateTwist(Twist2D t);
+
         /// \brief compose this transform with another and store the result 
         /// in this object
         /// \param rhs - the first transform to apply
         /// \returns a reference to the newly transformed operator
         Transform2D & operator*=(const Transform2D & rhs);
+        
 
         /// \brief get the x displacement of the  transformation
         /// \return the x displacement
@@ -205,7 +263,10 @@ namespace rigid2d
     /// \return the normalized NormalVector2D
     NormalVector2D normalize(Vector2D v);
 
-
+    /// \brief turns an angle into the equivalent one between PI and -PI
+    /// \param rad - the angle to convert
+    /// \return the converted angle
+    double normalize_angle(double rad);
 }
 
 #endif

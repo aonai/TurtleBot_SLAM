@@ -5,6 +5,8 @@
 TEST_CASE( "Test Vector2D struct and operators", "[Vector2D]" ) {
     std::stringstream ss;
     rigid2d::Vector2D v {1.1, 2.2};
+    rigid2d::Vector2D v2 {3, 4};
+    rigid2d::Vector2D v3 {};
 
     SECTION( "initialize Vector2D" ) {
         REQUIRE(v.x == 1.1);
@@ -33,6 +35,55 @@ TEST_CASE( "Test Vector2D struct and operators", "[Vector2D]" ) {
         REQUIRE(v.x == 1.2);
         REQUIRE(v.y == 3.4);
     }
+
+    SECTION( "add two Vector2D" ) {
+        v += v2;
+        REQUIRE(v.x == 4.1);
+        REQUIRE(v.y == 6.2);
+
+        v3 = v + v2;
+        REQUIRE(v3.x == 7.1);
+        REQUIRE(v3.y == 10.2);
+    }
+
+    SECTION( "subtract two Vector2D" ) {
+        v2 -= v;
+        REQUIRE(v2.x == 1.9);
+        REQUIRE(v2.y == (4-2.2));
+
+        v3 = v2 - v2;
+        REQUIRE(v3.x == 0);
+        REQUIRE(v3.y == 0);
+    }
+
+    SECTION( "multiply two Vector2D" ) {
+        v *= v2;
+        REQUIRE(v.x == (1.1*3+2.2*4));
+        REQUIRE(v.y == 0);
+
+        v3 = v * v2;
+        REQUIRE(v3.x == ((1.1*3+2.2*4)*3));
+        REQUIRE(v3.y == 0);
+    }
+
+    SECTION( "magnitude and angle of Vector2D" ) {
+        double mag = rigid2d::magnitude(v);
+        REQUIRE(mag == Approx(2.460).epsilon(0.01));
+
+        double ang = rigid2d::angle(v);
+        REQUIRE(ang == Approx(1.107).epsilon(0.01));
+    }
+
+    SECTION( "constructors of Vector2D" ) {
+        rigid2d::Vector2D test_v;
+        REQUIRE(test_v.x == 0.0);
+        REQUIRE(test_v.y == 0.0);
+
+        rigid2d::Vector2D test_v2(2, 3);
+        REQUIRE(test_v2.x == 2);
+        REQUIRE(test_v2.y == 3);
+    }
+    
 }
 
 TEST_CASE( "Test NormalVector2D helper function and operators", "[NormalVector2D]" ) {
@@ -174,5 +225,49 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
         REQUIRE(result.x() == Approx(-3.67).epsilon(0.01));
         REQUIRE(result.y() == Approx(-2.39).epsilon(0.01));
     }
+
+    SECTION ( "integrate twist function " ) {
+        rigid2d::Transform2D T1(rigid2d::Vector2D {2, 3}, 1);
+        rigid2d::Twist2D t{1, 2, 3};
+        rigid2d::Transform2D result;
+
+        result = T1.integrateTwist(t);
+        REQUIRE(result.theta() == Approx(2.00).epsilon(0.01));
+        REQUIRE(result.x() == Approx(4.73).epsilon(0.01));
+        REQUIRE(result.y() == Approx(0.88).epsilon(0.01));
+    }
+
+    SECTION ( "integrate twist function pure translation" ) {
+        rigid2d::Transform2D T1(rigid2d::Vector2D {2, 3}, 1);
+        rigid2d::Twist2D t{0, 2, 3};
+        rigid2d::Transform2D result;
+
+        result = T1.integrateTwist(t);
+        REQUIRE(result.theta() == Approx(1).epsilon(0.01));
+        REQUIRE(result.x() == Approx(4).epsilon(0.01));
+        REQUIRE(result.y() == Approx(6).epsilon(0.01));
+    }
+
+    SECTION ( "integrate twist function pure rotation" ) {
+        rigid2d::Transform2D T1(rigid2d::Vector2D {2, 3}, 1);
+        rigid2d::Twist2D t{1, 0, 0};
+        rigid2d::Transform2D result;
+
+        result = T1.integrateTwist(t);
+        REQUIRE(result.theta() == Approx(2).epsilon(0.01));
+        REQUIRE(result.x() == Approx(2).epsilon(0.01));
+        REQUIRE(result.y() == Approx(3).epsilon(0.01));
+    }
+
+    SECTION ( "convert angle" ) {
+        double rad = 3.34;
+        double result = rigid2d::normalize_angle(rad);
+        REQUIRE(result == Approx(0.2).epsilon(0.01));
+
+        rad = -3.34;
+        result = rigid2d::normalize_angle(rad);
+        REQUIRE(result == Approx(-0.2).epsilon(0.01));
+    }
+
 
 }
