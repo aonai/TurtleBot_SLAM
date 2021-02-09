@@ -2,7 +2,7 @@
 #include <limits>
 #include <cmath>
 #include <cstring>
-#include "../include/rigid2d/diff_drive.hpp"
+#include "rigid2d/diff_drive.hpp"
 
 namespace rigid2d {
     DiffDrive::DiffDrive(double base, double radius) : wheel_base(base), wheel_radius(radius) {

@@ -1,7 +1,7 @@
 #include <sstream>
 #include <catch_ros/catch.hpp>
-#include "../include/rigid2d/rigid2d.hpp"
-#include "../include/rigid2d/diff_drive.hpp"
+#include "rigid2d/rigid2d.hpp"
+#include "rigid2d/diff_drive.hpp"
 
 TEST_CASE( "Test Vector2D struct and operators", "[Vector2D]" ) {
     std::stringstream ss;

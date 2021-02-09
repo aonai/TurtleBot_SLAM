@@ -128,8 +128,8 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-${catkin_INCLUDE_DIRS}
+  include/
+  ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -146,8 +146,8 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_odometer src/diff_drive.cpp src/odometer.cpp src/rigid2d.cpp)
-add_executable(${PROJECT_NAME}_fake_turtle src/diff_drive.cpp src/fake_turtle.cpp src/rigid2d.cpp)
+add_executable(${PROJECT_NAME}_odometer src/diff_drive.cpp )
+add_executable(${PROJECT_NAME}_fake_turtle src/diff_drive.cpp )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -227,4 +227,5 @@ install(TARGETS ${PROJECT_NAME}_fake_turtle
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
 
-catch_add_test(${PROJECT_NAME}_test tests/test.cpp src/${PROJECT_NAME}.cpp src/diff_drive.cpp)
+catch_add_test(${PROJECT_NAME}_test tests/test.cpp )
+target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})

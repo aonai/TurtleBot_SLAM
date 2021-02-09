@@ -16,8 +16,8 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/JointState.h"
-#include "../include/rigid2d/rigid2d.hpp"
-#include "../include/rigid2d/diff_drive.hpp"
+#include "rigid2d/rigid2d.hpp"
+#include "rigid2d/diff_drive.hpp"
 
 
 /// \brief Helper class for node fake_turtle
@@ -85,14 +85,12 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
   rigid2d::Twist2D t {omg, vx, 0};
   rigid2d::DiffDriveVel wheel_vel = fake.vel_from_twist(t);
   fake.update(wheel_vel.vL, wheel_vel.vR);
-  // ROS_INFO("wheel vel = %f %f", wheel_vel.vL, wheel_vel.vR);
 
   current_rad_left += wheel_vel.vL;
   current_rad_right += wheel_vel.vR;
-  // ROS_INFO("current joints = %f %f", current_rad_left, current_rad_right);
 
-  // rigid2d::Transform2D config = fake.config();
-  // ROS_INFO("updated fake: %f %f %f", config.theta(), config.x(), config.y());
+  rigid2d::Transform2D config = fake.config();
+  ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y());
 }
 
 /// \brief Helper functionfor publishing joint states

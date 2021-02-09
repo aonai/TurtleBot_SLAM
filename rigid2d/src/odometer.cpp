@@ -22,8 +22,8 @@
 #include "rigid2d/SetPose.h"
 #include "rigid2d/SetPoseMsg.h"
 #include "rigid2d/DiffDriveMsg.h"
-#include "../include/rigid2d/rigid2d.hpp"
-#include "../include/rigid2d/diff_drive.hpp"
+#include "rigid2d/rigid2d.hpp"
+#include "rigid2d/diff_drive.hpp"
 
 /// \brief Helper class for node odometer
 class Handler {
@@ -108,7 +108,6 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("right_wheel_joint", right_wheel_joint, default_right);
   n.param("wheel_base", wheel_base, 0.08);
   n.param("wheel_radius", wheel_radius, 0.033);
-  // ROS_INFO("%s", odom_frame_id.c_str());
 }
 
 /// \brief Callback function for joint_states subscriber
@@ -124,12 +123,11 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     double rad_right_diff = rad_right - rad_right_old;
     rad_right_diff = rigid2d::normalize_angle(rad_right_diff);
     odom.update(rad_left_diff, rad_right_diff);
-    // ROS_INFO("diff = %f %f", rad_left_diff, rad_right_diff);
     rad_left_old = rad_left;
     rad_right_old = rad_right;
   }
-  // rigid2d::Transform2D config = odom.config();
-  // ROS_INFO("updated odom: %f %f %f", config.theta(), config.x(), config.y());
+  rigid2d::Transform2D config = odom.config();
+  ROS_INFO_STREAM("updated odom: " << config.theta() << config.x() << config.y());
 }
 
 
@@ -164,11 +162,6 @@ bool Handler::set_pose_service_callback(rigid2d::SetPose::Request  & req, rigid2
   double x = req.msg.x;
   double y = req.msg.y;
   odom.set_pose(theta, x, y);
-
-  // ROS_INFO("received %f %f %f", theta, x, y);
-  // rigid2d::Transform2D config = odom.config();
-  // ROS_INFO("new odom: %f %f %f", config.theta(), config.x(), config.y());
-
   return true;
 }
 
