@@ -146,8 +146,8 @@ add_library(${PROJECT_NAME}
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(${PROJECT_NAME}_odometer src/diff_drive.cpp )
-add_executable(${PROJECT_NAME}_fake_turtle src/diff_drive.cpp )
+add_executable(${PROJECT_NAME}_odometer src/odometer.cpp )
+add_executable(${PROJECT_NAME}_fake_turtle src/fake_turtle.cpp )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -163,9 +163,11 @@ add_dependencies(${PROJECT_NAME}_fake_turtle ${${PROJECT_NAME}_EXPORTED_TARGETS}
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_odometer
+  ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 target_link_libraries(${PROJECT_NAME}_fake_turtle
+  ${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 
@@ -228,4 +230,7 @@ install(TARGETS ${PROJECT_NAME}_fake_turtle
 # catkin_add_nosetests(test)
 
 catch_add_test(${PROJECT_NAME}_test tests/test.cpp )
-target_link_libraries(${PROJECT_NAME}_test ${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME}_test
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
