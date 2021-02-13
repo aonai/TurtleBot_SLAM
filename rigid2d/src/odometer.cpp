@@ -21,7 +21,6 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "rigid2d/SetPose.h"
 #include "rigid2d/SetPoseMsg.h"
-#include "rigid2d/DiffDriveMsg.h"
 #include "rigid2d/rigid2d.hpp"
 #include "rigid2d/diff_drive.hpp"
 
