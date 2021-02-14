@@ -23,7 +23,6 @@ namespace rigid2d
         double wheel_base = 0.0;
         double wheel_radius = 0.0;
         Transform2D T_config;
-        double H [2][3];
 
     public:
         /// \brief Create an kinematics model for a diff drive robot
@@ -48,7 +47,7 @@ namespace rigid2d
         /// \param rad_right - updated right wheel angle in radian
         void update(double rad_left, double rad_right);
 
-        /// \brief update config of the robot given an new configuration
+        /// \brief set config of the robot given an new configuration
         /// \param theta - theta of the new config in radian
         /// \param x - theta of the new config
         /// \param y - theta of the new config

@@ -56,6 +56,12 @@
   <depend>rigid2d</depend>
   <depend>catch_ros</depend>
   <depend>rostest</depend>
+  <build_depend>std_msgs</build_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_depend>message_generation</build_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

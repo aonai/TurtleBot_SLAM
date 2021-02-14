@@ -167,19 +167,19 @@ namespace rigid2d {
     Transform2D Transform2D::integrateTwist(rigid2d::Twist2D t) {
         Vector2D new_tran;
         double new_rad = 0;
-        if (t.omg == 0) {
+        if (t.omg == 0) {    
             new_tran.x = this->tran.x + t.vx;
             new_tran.y = this->tran.y + t.vy;
             new_rad = this->rad;
         }
-        else if (t.vx == 0 && t.vy == 0) {
+        else if (t.vx == 0 && t.vy == 0) {   
             new_tran.x = this->tran.x;
             new_tran.y = this->tran.y;
             new_rad = this->rad + t.omg;
         }
         else {
-            double sy = -t.vx/t.omg;
-            double sx = t.vy/t.omg;
+            double sy = -t.vx/t.omg;    // equation (5) of Kinematics.pdf 
+            double sx = t.vy/t.omg;     // equation (6) of Kinematics.pdf 
             Vector2D Vsb{sx, sy};
             Transform2D Tsb(Vsb, 0);
             Transform2D Tbs = Tsb.inv();
@@ -187,7 +187,7 @@ namespace rigid2d {
             Transform2D Tbsp = Tbs*Tssp;
             Transform2D Tbbp = Tbsp*Tsb;
             Transform2D copy(this->tran, this->rad);
-            Transform2D toReturn = copy * Tbbp;
+            Transform2D toReturn = copy * Tbbp;     // equation (7) of Kinematics.pdf 
             return toReturn;
         }
 
@@ -205,12 +205,6 @@ namespace rigid2d {
         }   
 
         Vector2D newV{multMat[0][2], multMat[1][2]};
-        // double cosRad = acos(multMat[0][0]);
-        // double sinRad = asin(multMat[1][0]);
-        // double newRad = cosRad;
-        // if (almost_equal(cosRad*100, -1*sinRad*100, 1e-3)) {
-        //     newRad = cosRad*-1;
-        // }
         double newRad = atan2(multMat[1][0], multMat[0][0]);
         this->tran = newV;
         this->rad = newRad;

@@ -91,8 +91,8 @@ TEST_CASE( "Test velocity commands", "[cmd_vel, wheel_cmd]" ) {
       }
     }
 
-    REQUIRE(tester.left_vel == 43); 
-    REQUIRE(tester.right_vel == 43);
+    REQUIRE(tester.left_vel == 122); 
+    REQUIRE(tester.right_vel == 122);
   }
 
   SECTION( "pure rotation" ) {
@@ -136,11 +136,11 @@ TEST_CASE( "Test encoders", "[sensor_data, joint_states]" ) {
     ros::Duration period = ros::Time::now() - begin;
     double period_secs = period.toSec();
     if (period_secs > 1) {
-      ros::shutdown();
+      break;
     }
   }
 
-  REQUIRE(tester.left_vel_js == Approx(0.072).epsilon(0.01)); 
-  REQUIRE(tester.right_vel_js == Approx(0.072).epsilon(0.01)); 
+  REQUIRE(tester.left_vel_js == Approx(0.07).epsilon(0.05)); 
+  REQUIRE(tester.right_vel_js == Approx(0.07).epsilon(0.05)); 
 
 }

@@ -68,7 +68,7 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base, wheel_radius) {
     pub_odom();
     tf_broadcast();
     
-    ros::Rate loop_rate(100);
+    ros::Rate loop_rate(50);
     ros::spinOnce();
     loop_rate.sleep();
   }
@@ -126,7 +126,7 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     rad_right_old = rad_right;
   }
   rigid2d::Transform2D config = odom.config();
-  ROS_INFO_STREAM("updated odom: " << config.theta() << config.x() << config.y());
+  // ROS_INFO_STREAM("updated odom: " << config.theta() << " "<<config.x()<<" " << config.y());
 }
 
 

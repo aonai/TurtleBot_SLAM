@@ -5,29 +5,22 @@
 #include "rigid2d/diff_drive.hpp"
 
 namespace rigid2d {
-    DiffDrive::DiffDrive(double base, double radius) : wheel_base(base), wheel_radius(radius) {
-        H[0][0] = -base/radius;
-        H[1][0] = base/radius;
-        H[0][1] = 1;
-        H[1][1] = 1;
-        H[0][2] = 0;
-        H[1][2] = 0;
-    }
+    DiffDrive::DiffDrive(double base, double radius) : wheel_base(base), wheel_radius(radius) {}
 
     Transform2D DiffDrive::config() const {
         return T_config;
     }
     
     DiffDriveVel DiffDrive::vel_from_twist(Twist2D t) {
-        double vel_left = this->H[0][0]*t.omg + this->H[0][1]*t.vx;    
-        double vel_right = this->H[1][0]*t.omg + this->H[1][1]*t.vx;    
+        double vel_left = (1/wheel_radius)*(-wheel_base*t.omg + t.vx);   // equation (1) of Kinematics.pdf 
+        double vel_right = (1/wheel_radius)*(wheel_base*t.omg + t.vx);   // equation (2) of Kinematics.pdf 
         DiffDriveVel vel {vel_left, vel_right};
         return vel;
     } 
     
     void DiffDrive::update(double rad_left, double rad_right) {
-        double omg = 0.5*(rad_right-rad_left)*wheel_radius/wheel_base;
-        double vx = rad_left + wheel_base*omg/wheel_radius;
+        double omg = 0.5*(rad_right-rad_left)*wheel_radius/wheel_base;   // equation (4) of Kinematics.pdf 
+        double vx = rad_left*wheel_radius + wheel_base*omg;              // equation (3) of Kinematics.pdf 
         Twist2D t {omg, vx, 0};
         Transform2D T;
         T_config *= T.integrateTwist(t);

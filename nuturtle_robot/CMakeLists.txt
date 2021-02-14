@@ -9,10 +9,12 @@ project(nuturtle_robot)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   catch_ros
+  geometry_msgs
+  message_generation
   rigid2d
   roscpp
   rostest
-    
+  std_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -49,18 +51,16 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  ControlMsg.msg
+)
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  Control.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -70,10 +70,10 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs  # Or other packages containing msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -108,10 +108,13 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES nuturtle_robot    
  CATKIN_DEPENDS catch_ros
+ CATKIN_DEPENDS geometry_msgs
+ CATKIN_DEPENDS message_runtime
  CATKIN_DEPENDS rigid2d
  CATKIN_DEPENDS roscpp
  CATKIN_DEPENDS rostest
-#  DEPENDS system_lib
+ CATKIN_DEPENDS std_msgs
+  #  DEPENDS system_lib
 )
 
 ###########
@@ -139,19 +142,26 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_turtle_interface src/turtle_interface.cpp)
+add_executable(${PROJECT_NAME}_follow_circle src/follow_circle.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
 set_target_properties(${PROJECT_NAME}_turtle_interface PROPERTIES OUTPUT_NAME turtle_interface PREFIX "")
+set_target_properties(${PROJECT_NAME}_follow_circle PROPERTIES OUTPUT_NAME follow_circle PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_turtle_interface ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_follow_circle ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_turtle_interface
+  ${catkin_LIBRARIES}
+  rigid2d
+)
+target_link_libraries(${PROJECT_NAME}_follow_circle
   ${catkin_LIBRARIES}
   rigid2d
 )
@@ -174,6 +184,9 @@ target_link_libraries(${PROJECT_NAME}_turtle_interface
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 install(TARGETS ${PROJECT_NAME}_turtle_interface
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS ${PROJECT_NAME}_follow_circle
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 ## Mark libraries for installation

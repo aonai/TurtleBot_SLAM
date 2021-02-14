@@ -23,16 +23,17 @@ class Handler {
         //variables 
         double wheel_base = 0.08;
         double wheel_radius = 0.033;
-        double max_rot_vel = 2.84;     
+        double max_encoder = 2.84;     
         double gear_ratio = 258.5;
         int rpm = 57; 
         int max_step = 4096;
-        double left_encoder_init = 0;
-        double right_encoder_init = 0;
+        double left_encoder_pre = 0;
+        double right_encoder_pre = 0;
         double left_vel = 0;
         double right_vel = 0;
         double left_pos = 0;
         double right_pos = 0;
+        bool pub_wheel = true;
         ros::Time begin = ros::Time::now();
         std::string left_wheel_joint = "wheel_left_link";
         std::string right_wheel_joint = "wheel_right_link";
@@ -60,7 +61,10 @@ Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
     joint_state_pub = n.advertise<sensor_msgs::JointState>("joint_states", 10);
 
     while (ros::ok()) {
-        pub_wheel_cmd();
+        ros::param::get("~pub_wheel", pub_wheel);
+        if (pub_wheel) {
+            pub_wheel_cmd();
+        }
         pub_joint_state();
 
         ros::Rate loop_rate(50);
@@ -73,9 +77,12 @@ Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
 /// \brief Helper function for publishing wheel commands
 void Handler::pub_wheel_cmd() {
     nuturtlebot::WheelCommands msg;
-    msg.left_velocity = wheel_vel.vL*gear_ratio/(2*rigid2d::PI*wheel_radius*rpm/60);
-    msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*wheel_radius*rpm/60);
+    msg.left_velocity = wheel_vel.vL*gear_ratio/(2*rigid2d::PI*rpm/60);
+    msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*rpm/60);
+
+
     wheel_cmd_pub.publish(msg);
+    // ROS_INFO_STREAM("pub wheel cmd: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL << " " << wheel_vel.vR);
 }
 
 
@@ -90,34 +97,40 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
     rigid2d::Twist2D t {omg, vx, 0};
     wheel_vel = turtle.vel_from_twist(t);
 
-    if (wheel_vel.vL >= max_rot_vel) {
-        wheel_vel.vL = max_rot_vel;
+    if (wheel_vel.vL >= max_encoder) {
+        wheel_vel.vL = max_encoder;
     }
-    if (wheel_vel.vR >= max_rot_vel) {
-        wheel_vel.vR = max_rot_vel;
+    else if (wheel_vel.vL <= -max_encoder) {
+        wheel_vel.vL = -max_encoder;
+    }
+    if (wheel_vel.vR >= max_encoder) {
+        wheel_vel.vR = max_encoder;
+    }
+    else if (wheel_vel.vR <= -max_encoder) {
+        wheel_vel.vR = -max_encoder;
     }
 
-    ROS_INFO_STREAM("calc vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
+    // ROS_INFO_STREAM("calc vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
 }
 
 /// \brief Callback function for sensor_data subscriber
 /// Calculates left and right velocities from encoders
 /// \param msg - sensor data of turtle
 void Handler::sensor_data_sub_callback(const nuturtlebot::SensorData  & msg) {
-    double left_encoder = msg.left_encoder-left_encoder_init;
-    double right_encoder = msg.right_encoder-right_encoder_init;
+    double left_encoder = msg.left_encoder-left_encoder_pre;
+    double right_encoder = msg.right_encoder-right_encoder_pre;
 
     ros::Duration period = ros::Time::now() - begin;
     double period_secs = period.toSec();
     if (period_secs > 1e-3) {
         begin = ros::Time::now();
-        left_vel = (left_encoder/max_step)*(2*rigid2d::PI*wheel_radius*60/rpm)/period_secs;
-        right_vel = (right_encoder/max_step)*(2*rigid2d::PI*wheel_radius*60/rpm)/period_secs;
-        left_pos += left_vel;
-        right_pos += right_vel;
+        left_vel = (left_encoder/max_step)*(2*rigid2d::PI*rpm/60)/period_secs;
+        right_vel = (right_encoder/max_step)*(2*rigid2d::PI*rpm/60)/period_secs;
+        left_pos += left_vel*period_secs;
+        right_pos += right_vel*period_secs;
 
-        left_encoder_init = msg.left_encoder;
-        right_encoder_init = msg.right_encoder;
+        left_encoder_pre = msg.left_encoder;
+        right_encoder_pre = msg.right_encoder;
 
         ROS_INFO_STREAM("calc encoder " << left_encoder << " " <<right_encoder<<" to "<<left_vel<<" "<<right_vel << " period = " << period_secs);
     }
