@@ -1,6 +1,14 @@
 /**
- * \brief This node is going test turtle_interfac.
-
+ * \brief This node is going to test node turtle_interface using catch_ros
+ * 
+ * PUBLISHERS:
+ * + cmd_vel (geometry_msgs::Twist) ~ velocity of turtle in form of twist
+ * + sensor_data (nuturtlebot::SensorData) ~ sensor data of turtle
+ * 
+ * SUBSRIBERS:
+ * + joint_states (sensor_msgs::JointState) ~ joint states of robot 
+ * + wheel_cmd (nuturtlebot::WheelCommands) ~ left and right wheel velocities of turtle
+ * 
 **/
 
 #include <vector>
@@ -35,8 +43,8 @@ class Handler {
     void joint_states_sub_callback(const sensor_msgs::JointState & js);
 };
 
-// /// \brief Init Handler class
-// /// \param n - turtle_interface_test NodeHandle
+/// \brief Init Handler class
+/// \param n - turtle_interface_test NodeHandle
 Handler::Handler(ros::NodeHandle & n) {
   cmd_vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
   sensor_data_pub = n.advertise<nuturtlebot::SensorData>("sensor_data", 10);
@@ -44,18 +52,24 @@ Handler::Handler(ros::NodeHandle & n) {
   joint_states_sub = n.subscribe("joint_states", 10, &Handler::joint_states_sub_callback, this);
 }
 
+
+/// \brief Callback function for wheel_cmd subscriber
+/// \param vel - wheel velocities of turtle
 void Handler::wheel_cmd_sub_callback(const nuturtlebot::WheelCommands & vel) {
   left_vel = vel.left_velocity;
   right_vel = vel.right_velocity;
-  ROS_INFO_STREAM("received wheel vel: " << vel.left_velocity <<" "<< vel.right_velocity);
+  // ROS_INFO_STREAM("received wheel vel: " << vel.left_velocity <<" "<< vel.right_velocity);
 }
 
+/// \brief Callback function for joint_states subscriber
+/// \param js - joint states of turtle
 void Handler::joint_states_sub_callback(const sensor_msgs::JointState & js) {
   left_vel_js = js.velocity[0];
   right_vel_js = js.velocity[1];
-  ROS_INFO_STREAM("received js vel: " << left_vel_js << " " << right_vel_js);
+  // ROS_INFO_STREAM("received js vel: " << left_vel_js << " " << right_vel_js);
 }
 
+/// \brief Helper function for pubslihing cmd_vel
 void Handler::pub_cmd_vel(double vx, double omg) {
   geometry_msgs::Twist msg;
   msg.linear.x = vx;
@@ -63,6 +77,7 @@ void Handler::pub_cmd_vel(double vx, double omg) {
   cmd_vel_pub.publish(msg);
 }
 
+/// \brief Helper function for pubslihing sensor data
 void Handler::pub_sensor_data(int left_encoder, int right_encoder) {
   nuturtlebot::SensorData msg;
   msg.left_encoder = left_encoder;

@@ -7,6 +7,12 @@
  *   
  * SUBSRIBERS:
  * + cmd_vel (geometry_msgs::Twist) ~ the velocity of turtle
+ *  
+ * PARAMETERS:
+ * + left_wheel_joint (string) ~ name of the left wheel joint
+ * + right_wheel_joint (string) ~ name of the right wheel joint
+ * + wheel_base (double) ~ base dimension of robot wheel
+ * + wheel_radius (double) ~ radius dimension of robot wheel
  * 
 **/
 
@@ -27,7 +33,7 @@ class Handler {
 
   private:
     // variables 
-    double wheel_base = 0.08;
+    double wheel_base = 0.16;
     double wheel_radius = 0.033;
     std::string left_wheel_joint;
     std::string right_wheel_joint;
@@ -46,7 +52,7 @@ class Handler {
 
 /// \brief Init Handler class
 /// \param n - fake_turtle NodeHandle
-Handler::Handler(ros::NodeHandle & n) : fake(wheel_base, wheel_radius) {
+Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius) {
   cmd_vel_sub = n.subscribe("cmd_vel", 10, &Handler::cmd_vel_sub_callback, this);
   joint_state_pub = n.advertise<sensor_msgs::JointState>("joint_states", 10);
     
@@ -70,7 +76,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   std::string default_right = "wheel_right_link";
   n.param("left_wheel_joint", left_wheel_joint, default_left);
   n.param("right_wheel_joint", right_wheel_joint, default_right);
-  n.param("wheel_base", wheel_base, 0.08);
+  n.param("wheel_base", wheel_base, 0.16);
   n.param("wheel_radius", wheel_radius, 0.033);
 }
 
@@ -90,7 +96,7 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
   current_rad_right += wheel_vel.vR;
 
   rigid2d::Transform2D config = fake.config();
-  ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y());
+  // ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y());
 }
 
 /// \brief Helper function for publishing joint states

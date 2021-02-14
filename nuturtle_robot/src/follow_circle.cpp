@@ -1,6 +1,12 @@
 /**
  * \brief This node is make a turtlebot move in a circle with input radius.
-
+ * 
+ * PUBLISHERS:
+ * + wheel_cmd (nuturtlebot::WheelCommands) ~ left and right wheel velocities of turtle
+ * 
+ * SERVICES:
+ * + control (nuturtle_robot::Control) ~ make turtlebot move clockwise or counterclowise, or make it stop
+ * 
 **/
 
 
@@ -13,7 +19,7 @@
 #include "nuturtle_robot/Control.h"
 
 
-/// \brief Helper class for node turtle_interface
+/// \brief Helper class for node follow_circle
 class Handler {
     public:
         explicit Handler(ros::NodeHandle & n);
@@ -42,7 +48,6 @@ class Handler {
 Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
     wheel_cmd_pub = n.advertise<nuturtlebot::WheelCommands>("wheel_cmd", 10);
     control_service = n.advertiseService("control", &Handler::control_service_callback, this);
-
     
     while (ros::ok()) {
         ros::param::get("~circle_radius", circle_radius);
@@ -62,13 +67,14 @@ void Handler::pub_wheel_cmd() {
     msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*rpm/60);
 
     wheel_cmd_pub.publish(msg);
-    ROS_INFO_STREAM("circle encoder: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL <<" "<<wheel_vel.vR);
+    // ROS_INFO_STREAM("circle encoder: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL <<" "<<wheel_vel.vR);
 }
 
 
 /// \brief Callback function for control servive
 /// Calculates left and right velocities of wheels for turtle to drive in a circle.
 /// Wheel velocities should not exceed maximum rotational velocity of turtle.
+/// The angular velocity of turtle is set to 0.2. 
 /// \param req - request of control service 
 /// \param res - responce of control service 
 bool Handler::control_service_callback(nuturtle_robot::Control::Request  & req, nuturtle_robot::Control::Response & res) {
@@ -99,7 +105,7 @@ bool Handler::control_service_callback(nuturtle_robot::Control::Request  & req, 
             wheel_vel.vR = -max_encoder;
         }
 
-        ROS_INFO_STREAM("circle vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
+        // ROS_INFO_STREAM("circle vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
     }
     return true;
 }

@@ -1,14 +1,14 @@
 #ifndef DIFF_DRIVE_GUARD_HPP
 #define DIFF_DRIVE_GUARD_HPP
 /// \file
-/// \brief Library for 
+/// \brief Library for differential drive robot kinematics. Refer to doc/Kinematics.pdf for mathematical calculations.
 
-#include<iosfwd> // contains forward definitions for iostream objects
+#include<iosfwd> 
 #include "rigid2d.hpp"
 
 namespace rigid2d
 {
-   /// \brief velocity of a diff-drive robot
+   /// \brief left and right velocities of a diff-drive robot
     struct DiffDriveVel
     {
         double vL = 0.0;
@@ -16,7 +16,7 @@ namespace rigid2d
     };
 
 
-    /// \brief kinematic operations for a differential-drive robot.
+    /// \brief kinematic operations for a differential-drive robot
     class DiffDrive
     {
     private:
@@ -25,7 +25,7 @@ namespace rigid2d
         Transform2D T_config;
 
     public:
-        /// \brief Create an kinematics model for a diff drive robot
+        /// \brief Create a kinematics model for a diff drive robot
         /// with the given base and radius.
         /// \param base - wheel base dimension
         /// \param radius - wheel radius dimension
@@ -41,8 +41,8 @@ namespace rigid2d
         /// \return velocities to achieve desired twist
         DiffDriveVel vel_from_twist(Twist2D t);   
         
-        /// \brief update config of the robot given an updated wheel angle relative
-        /// to body frame of robot
+        /// \brief update config of the robot given relative wheel angles
+        /// to current body frame of robot 
         /// \param rad_left - updated left wheel angle in radian
         /// \param rad_right - updated right wheel angle in radian
         void update(double rad_left, double rad_right);

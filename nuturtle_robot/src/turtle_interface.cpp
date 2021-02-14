@@ -1,6 +1,14 @@
 /**
- * \brief This node is going to move a turtlebot using on left and right wheel velocities.
-
+ * \brief This node is going to make a turtlebot move based on wheel velocities calculated from input twist.
+ * 
+ * PUBLISHERS:
+ * + joint_states (sensor_msgs::JointState) ~ joint states of robot 
+ * + wheel_cmd (nuturtlebot::WheelCommands) ~ left and right wheel velocities of turtle
+ * 
+ * SUBSRIBERS:
+ * + cmd_vel (geometry_msgs::Twist) ~ velocity of turtle in form of twist
+ * + sensor_data (nuturtlebot::SensorData) ~ sensor data of turtle
+ * 
 **/
 
 
@@ -62,8 +70,8 @@ Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
 
     while (ros::ok()) {
         ros::param::get("~pub_wheel", pub_wheel);
-        if (pub_wheel) {
-            pub_wheel_cmd();
+        if (pub_wheel) {        
+            pub_wheel_cmd();    // publish wheel_cmd message only if follow_circle node is not running
         }
         pub_joint_state();
 
@@ -79,8 +87,6 @@ void Handler::pub_wheel_cmd() {
     nuturtlebot::WheelCommands msg;
     msg.left_velocity = wheel_vel.vL*gear_ratio/(2*rigid2d::PI*rpm/60);
     msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*rpm/60);
-
-
     wheel_cmd_pub.publish(msg);
     // ROS_INFO_STREAM("pub wheel cmd: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL << " " << wheel_vel.vR);
 }
@@ -132,7 +138,7 @@ void Handler::sensor_data_sub_callback(const nuturtlebot::SensorData  & msg) {
         left_encoder_pre = msg.left_encoder;
         right_encoder_pre = msg.right_encoder;
 
-        ROS_INFO_STREAM("calc encoder " << left_encoder << " " <<right_encoder<<" to "<<left_vel<<" "<<right_vel << " period = " << period_secs);
+        // ROS_INFO_STREAM("calc encoder " << left_encoder << " " <<right_encoder<<" to "<<left_vel<<" "<<right_vel << " period = " << period_secs);
     }
 }
 

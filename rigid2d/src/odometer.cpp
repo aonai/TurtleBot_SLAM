@@ -2,13 +2,21 @@
  * \brief This node is going to generate odometry message for a robot.
  * 
  * PUBLISHERS:
- * + odom (nav_msgs::Odometry) ~ odometry of turtle
+ * + odom (nav_msgs::Odometry) ~ odometry of robot
  * 
  * SUBSRIBERS:
- * + joint_states (sensor_msgs::JointState) ~ joint states of turtle 
+ * + joint_states (sensor_msgs::JointState) ~ joint states of robot 
  * 
  * SERVICES:
- * + set_pose (rigid2d::SetPose) ~ reset odometry frame of turtle
+ * + set_pose (rigid2d::SetPose) ~ reset odometry frame of robot
+ * 
+ * PARAMETERS:
+ * + odom_frame_id (string) ~ name of the odometry tf frame
+ * + body_frame_id (string) ~ name of the body tf frame
+ * + left_wheel_joint (string) ~ name of the left wheel joint
+ * + right_wheel_joint (string) ~ name of the right wheel joint
+ * + wheel_base (double) ~ base dimension of robot wheel
+ * + wheel_radius (double) ~ radius dimension of robot wheel
 **/
 
 
@@ -35,7 +43,7 @@ class Handler {
     std::string body_frame_id;
     std::string left_wheel_joint;
     std::string right_wheel_joint;
-    double wheel_base = 0.08;
+    double wheel_base = 0.16;
     double wheel_radius = 0.033;
     double rad_left_thresh = 0.0;
     double rad_right_thresh = 0.0;
@@ -57,7 +65,7 @@ class Handler {
 
 /// \brief Init Handler class
 /// \param n - odometer NodeHandle
-Handler::Handler(ros::NodeHandle & n) : odom(wheel_base, wheel_radius) {
+Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius) {
   joint_states_sub = n.subscribe("joint_states", 10, &Handler::joint_states_sub_callback, this);
   odom_pub = n.advertise<nav_msgs::Odometry>("odom", 10);
   set_pose_service = n.advertiseService("set_pose", &Handler::set_pose_service_callback, this);
@@ -95,7 +103,7 @@ void Handler::pub_odom() {
 
 /// \brief Find parameters odom_frame_id, body_frame_id, left_wheel_joint, right_wheel_joint, 
 /// wheel_base, and wheel_radius from ROS parameter server, otherwise set to default value
-/// \param n - turtle_rect NodeHandle
+/// \param n - odometer NodeHandle
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_odom = "odom";
   std::string default_base = "base_footprint";
@@ -105,12 +113,12 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("body_frame_id", body_frame_id, default_base);
   n.param("left_wheel_joint", left_wheel_joint, default_left);
   n.param("right_wheel_joint", right_wheel_joint, default_right);
-  n.param("wheel_base", wheel_base, 0.08);
+  n.param("wheel_base", wheel_base, 0.16);
   n.param("wheel_radius", wheel_radius, 0.033);
 }
 
-/// \brief Callback function for joint_states subscriber
-/// Updates turtle config given updated wheel angles.
+/// \brief Callback function for joint_states subscriber.
+/// Updates robot config given updated wheel angles.
 /// \param msg - message from subscriber
 void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
   double rad_left = msg.position[0] - rad_left_thresh;
@@ -156,7 +164,6 @@ void Handler::tf_broadcast() {
 /// \param res - responce of set_pose service 
 /// \returns true if service set_pose is success and complete
 bool Handler::set_pose_service_callback(rigid2d::SetPose::Request  & req, rigid2d::SetPose::Response & res) {
-  // store trajectory
   double theta = req.msg.theta;
   double x = req.msg.x;
   double y = req.msg.y;

@@ -167,19 +167,19 @@ namespace rigid2d {
     Transform2D Transform2D::integrateTwist(rigid2d::Twist2D t) {
         Vector2D new_tran;
         double new_rad = 0;
-        if (t.omg == 0) {    
+        if (t.omg == 0) {                    // pure translation 
             new_tran.x = this->tran.x + t.vx;
             new_tran.y = this->tran.y + t.vy;
             new_rad = this->rad;
-        }
-        else if (t.vx == 0 && t.vy == 0) {   
+        }   
+        else if (t.vx == 0 && t.vy == 0) {   // pure rotation
             new_tran.x = this->tran.x;
             new_tran.y = this->tran.y;
             new_rad = this->rad + t.omg;
         }
         else {
-            double sy = -t.vx/t.omg;    // equation (5) of Kinematics.pdf 
-            double sx = t.vy/t.omg;     // equation (6) of Kinematics.pdf 
+            double sy = -t.vx/t.omg;         // equation (5) of Kinematics.pdf 
+            double sx = t.vy/t.omg;          // equation (6) of Kinematics.pdf 
             Vector2D Vsb{sx, sy};
             Transform2D Tsb(Vsb, 0);
             Transform2D Tbs = Tsb.inv();
