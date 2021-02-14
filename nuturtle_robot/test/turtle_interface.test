@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<launch>
+
+    <node pkg="nuturtle_robot" type="turtle_interface" name="turtle_interface"/>
+    <test pkg="nuturtle_robot" type="nuturtle_robot_test" name ="nuturtle_robot_test" test-name="nuturtle_robot_test"/>
+
+</launch>

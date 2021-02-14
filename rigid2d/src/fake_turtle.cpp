@@ -77,7 +77,7 @@ void Handler::find_param(ros::NodeHandle & n) {
 /// \brief Callback function for cmd_vel subscriber
 /// Compute wheel velocities from given twist (cmd_vel), then update turtle config
 /// and wheel angles. 
-/// \param vel - desired velocity of turtle
+/// \param vel - velocity of turtle
 void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
   double omg = vel.angular.z;
   double vx = vel.linear.x;
@@ -93,7 +93,7 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
   ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y());
 }
 
-/// \brief Helper functionfor publishing joint states
+/// \brief Helper function for publishing joint states
 void Handler::pub_joint_state() {
   sensor_msgs::JointState js;
   std::vector<std::string> name = {left_wheel_joint, right_wheel_joint};
