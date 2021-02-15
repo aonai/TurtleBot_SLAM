@@ -1,8 +1,11 @@
 <?xml version="1.0" ?>
 <launch>
     <arg name="circle" default="true" doc="whether to use follow_circle node"/>
+    <arg name="robot" default="localhost" doc="hostname of turtlebot" />
 
-    <!-- <include file="$(find nuturtle_robot)/launch/basic_remote.launch" /> -->
+    <include file="$(find nuturtle_robot)/launch/basic_remote.launch">
+        <arg name="robot" value="$(arg robot)"/>
+    </include>
 
     <node pkg="nuturtle_robot" type="follow_circle" name="follow_circle" if="$(arg circle)" output="screen">
         <param name="~circle_radius" value="0.3" type="double"/>

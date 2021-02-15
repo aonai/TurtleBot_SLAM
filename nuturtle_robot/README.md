@@ -18,7 +18,7 @@
 
 2. To control turtlebot and view odometry information in rviz run
     ```
-    roslaunch nuturtle_robot odom_teleop.launch
+    roslaunch nuturtle_robot odom_teleop.launch robot:=<hostname_of_turtle> circle:=<your_option>
     ```
     Set argument `circle` to true if want to make turtle drive in cricles. Set argument `circle` to false if want to drive turtle using `teleop_keyboard`. This argument is default to true.
 
