@@ -26,18 +26,18 @@
 # Testing with Odometry
 The following setups are tested using a real burger turtlebot.
 1. After driving the turtlebot forward and backward without rotation several times, then stopping at initial position, the final location of turtlebot is (0, 0, 0).
-![test_1_demo](images/demo_1.gip)
-![test_1_physical_demo](images/demo_1_physical.gip)
+![test_1_demo](images/demo_1.gif)
+![test_1_physical_demo](images/demo_1_physical.gif)
 
 2. After rotating the turtlebot clockwise and counterclockwise without translation several times, then stopping at initial position, the final location of turtlebot is (0, 0, 0).
-![test_2_demo](images/demo_2.gip)
-![test_2_physical_demo](images/demo_2_physical.gip)
+![test_2_demo](images/demo_2.gif)
+![test_2_physical_demo](images/demo_2_physical.gif)
 
 2. After moving the turtlebot clockwise and counterclockwise in circles, then stopping at initial position, the final location of turtlebot is (0, 0, 0).
-![test_3_demo](images/demo_3.gip)
-![test_3_physical_demo](images/demo_3_physical.gip)
+![test_3_demo](images/demo_3.gif)
+![test_3_physical_demo](images/demo_3_physical.gif)
 
 3. After deliberately drive the turtlebot forward and backward using maximum velocity (around 0.22), then stopping at initial position, the final location of turtlebot is (0, 0, 0). This is close to (0, 0, 0), but as seen in the physical demo, turtlebot has shiffted from its actual initial position.
-![test_4_demo](images/demo_4.gip)
-![test_4_physical_demo](images/demo_4_physical.gip)
+![test_4_demo](images/demo_4.gif)
+![test_4_physical_demo](images/demo_4_physical.gif)
 
