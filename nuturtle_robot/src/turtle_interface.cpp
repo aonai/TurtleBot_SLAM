@@ -31,7 +31,7 @@ class Handler {
         //variables 
         double wheel_base = 0.08;
         double wheel_radius = 0.033;
-        double max_encoder = 2.84;     
+        double max_encoder = 200;     
         double gear_ratio = 258.5;
         int rpm = 57; 
         int max_step = 4096;
@@ -70,9 +70,7 @@ Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
 
     while (ros::ok()) {
         ros::param::get("~pub_wheel", pub_wheel);
-        if (pub_wheel) {        
-            pub_wheel_cmd();    // publish wheel_cmd message only if follow_circle node is not running
-        }
+        pub_wheel_cmd();    // publish wheel_cmd message only if follow_circle node is not running
         pub_joint_state();
 
         ros::Rate loop_rate(50);
@@ -87,6 +85,20 @@ void Handler::pub_wheel_cmd() {
     nuturtlebot::WheelCommands msg;
     msg.left_velocity = wheel_vel.vL*gear_ratio/(2*rigid2d::PI*rpm/60);
     msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*rpm/60);
+
+    if (msg.left_velocity >= max_encoder) {
+        msg.left_velocity = max_encoder;
+    }
+    else if (msg.left_velocity <= -max_encoder) {
+        msg.left_velocity = -max_encoder;
+    }
+    if (msg.right_velocity >= max_encoder) {
+        msg.right_velocity = max_encoder;
+    }
+    else if (msg.right_velocity <= -max_encoder) {
+        msg.right_velocity = -max_encoder;
+    }
+
     wheel_cmd_pub.publish(msg);
     // ROS_INFO_STREAM("pub wheel cmd: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL << " " << wheel_vel.vR);
 }
@@ -102,19 +114,6 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
 
     rigid2d::Twist2D t {omg, vx, 0};
     wheel_vel = turtle.vel_from_twist(t);
-
-    if (wheel_vel.vL >= max_encoder) {
-        wheel_vel.vL = max_encoder;
-    }
-    else if (wheel_vel.vL <= -max_encoder) {
-        wheel_vel.vL = -max_encoder;
-    }
-    if (wheel_vel.vR >= max_encoder) {
-        wheel_vel.vR = max_encoder;
-    }
-    else if (wheel_vel.vR <= -max_encoder) {
-        wheel_vel.vR = -max_encoder;
-    }
 
     // ROS_INFO_STREAM("calc vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
 }

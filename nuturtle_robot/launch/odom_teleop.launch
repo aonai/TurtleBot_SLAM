@@ -12,10 +12,7 @@
     </node>
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" unless="$(arg circle)" output="log" launch-prefix="gnome-terminal --command" />
 
-    <node pkg="nuturtle_robot" type="turtle_interface" name="turtle_interface" output="screen">
-        <param name="~pub_wheel" value="true" type="bool" unless="$(arg circle)" />
-        <param name="~pub_wheel" value="false" type="bool" if="$(arg circle)" />
-    </node>
+    <node pkg="nuturtle_robot" type="turtle_interface" name="turtle_interface" output="screen"/>
     <node name="odometer" pkg="rigid2d" type="odometer" output="screen"/>
 
 

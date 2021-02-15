@@ -2,7 +2,7 @@
  * \brief This node is make a turtlebot move in a circle with input radius.
  * 
  * PUBLISHERS:
- * + wheel_cmd (nuturtlebot::WheelCommands) ~ left and right wheel velocities of turtle
+ * + cmd_vel (geometry_msgs::Twist) ~ velocity of turtle in form of twist
  * 
  * SERVICES:
  * + control (nuturtle_robot::Control) ~ make turtlebot move clockwise or counterclowise, or make it stop
@@ -13,8 +13,7 @@
 #include <vector>
 #include <string>
 #include "ros/ros.h"
-#include "rigid2d/diff_drive.hpp"
-#include "nuturtlebot/WheelCommands.h"
+#include "geometry_msgs/Twist.h"
 #include "nuturtle_robot/ControlMsg.h"
 #include "nuturtle_robot/Control.h"
 
@@ -26,32 +25,27 @@ class Handler {
 
     private:
         //variables 
-        double wheel_base = 0.08;
-        double wheel_radius = 0.033;
-        int max_encoder = 250;  
-        double gear_ratio = 258.5;
-        int rpm = 57; 
+        double vx = 0;
+        double omg = 0;
         double circle_radius = 0.3;
-        rigid2d::DiffDriveVel wheel_vel {0, 0};
-        rigid2d::DiffDrive turtle;           
         // ROS members
-        ros::Publisher wheel_cmd_pub;
+        ros::Publisher cmd_vel_pub;
         ros::ServiceServer control_service;
         // helper functions
-        void pub_wheel_cmd();
+        void pub_cmd_vel();
         bool control_service_callback(nuturtle_robot::Control::Request  & req, nuturtle_robot::Control::Response & res);
 
 };
 
 /// \brief Init Handler class
 /// \param n - follow_circle NodeHandle
-Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
-    wheel_cmd_pub = n.advertise<nuturtlebot::WheelCommands>("wheel_cmd", 10);
+Handler::Handler(ros::NodeHandle & n) {
+    cmd_vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 10);
     control_service = n.advertiseService("control", &Handler::control_service_callback, this);
     
     while (ros::ok()) {
         ros::param::get("~circle_radius", circle_radius);
-        pub_wheel_cmd();
+        pub_cmd_vel();
 
         ros::Rate loop_rate(50);
         ros::spinOnce();
@@ -60,52 +54,33 @@ Handler::Handler(ros::NodeHandle & n) : turtle(wheel_base, wheel_radius) {
     
 }
 
-/// \brief Helper function for publishing wheel commands
-void Handler::pub_wheel_cmd() {
-    nuturtlebot::WheelCommands msg;
-    msg.left_velocity = wheel_vel.vL*gear_ratio/(2*rigid2d::PI*rpm/60);
-    msg.right_velocity = wheel_vel.vR*gear_ratio/(2*rigid2d::PI*rpm/60);
+/// \brief Helper function for publishing cmd_vel
+void Handler::pub_cmd_vel() {
+    geometry_msgs::Twist msg;
+    msg.linear.x = vx;
+    msg.angular.z = omg;
 
-    wheel_cmd_pub.publish(msg);
-    // ROS_INFO_STREAM("circle encoder: " << msg.left_velocity <<" "<< msg.right_velocity << " from " << wheel_vel.vL <<" "<<wheel_vel.vR);
+    cmd_vel_pub.publish(msg);
+    // ROS_INFO_STREAM("pub vel: " << vx <<" "<< omg);
 }
 
 
 /// \brief Callback function for control servive
-/// Calculates left and right velocities of wheels for turtle to drive in a circle.
-/// Wheel velocities should not exceed maximum rotational velocity of turtle.
-/// The angular velocity of turtle is set to 0.2. 
+/// Calculates velocities of turtle to drive in a circle.
 /// \param req - request of control service 
 /// \param res - responce of control service 
 bool Handler::control_service_callback(nuturtle_robot::Control::Request  & req, nuturtle_robot::Control::Response & res) {
     if (req.msg.stop) {
-        wheel_vel.vL = 0;
-        wheel_vel.vR = 0;
+        vx = 0;
+        omg = 0;
     }
     else {
-        double omg = -0.2;
+        omg = -0.2;
         if (req.msg.clockwise) {
             omg = 0.2;
         }
-        double vx = omg*circle_radius;
+        vx = omg*circle_radius;
 
-        rigid2d::Twist2D t {omg, vx, 0};
-        wheel_vel = turtle.vel_from_twist(t);
-        
-        if (wheel_vel.vL >= max_encoder) {
-            wheel_vel.vL = max_encoder;
-        }
-        else if (wheel_vel.vL <= -max_encoder) {
-            wheel_vel.vL = -max_encoder;
-        }
-        if (wheel_vel.vR >= max_encoder) {
-            wheel_vel.vR = max_encoder;
-        }
-        else if (wheel_vel.vR <= -max_encoder) {
-            wheel_vel.vR = -max_encoder;
-        }
-
-        // ROS_INFO_STREAM("circle vel: " << wheel_vel.vL <<" "<< wheel_vel.vR);
     }
     return true;
 }
