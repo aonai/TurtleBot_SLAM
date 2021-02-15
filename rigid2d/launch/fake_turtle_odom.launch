@@ -1,6 +1,6 @@
 <launch>
 
-    <param name="wheel_base" value="0.08" type="double"/>
+    <param name="wheel_base" value="0.16" type="double"/>
     <param name="wheel_radius" value="0.033" type="double"/>
     <param name="odom_frame_id" value="odom" type="string"/>
     <param name="body_frame_id" value="base_footprint" type="string"/>

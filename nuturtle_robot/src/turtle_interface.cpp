@@ -29,7 +29,7 @@ class Handler {
 
     private:
         //variables 
-        double wheel_base = 0.08;
+        double wheel_base = 0.16;
         double wheel_radius = 0.033;
         double max_encoder = 200;     
         double gear_ratio = 258.5;
