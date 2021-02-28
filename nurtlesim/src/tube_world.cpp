@@ -23,6 +23,11 @@
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/JointState.h"
+#include "visualization_msgs/Marker.h"
+#include "visualization_msgs/MarkerArray.h"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_ros/transform_broadcaster.h"
+#include "nav_msgs/Path.h"
 #include "rigid2d/rigid2d.hpp"
 #include "rigid2d/diff_drive.hpp"
 
@@ -44,16 +49,31 @@ class Handler {
     double noise_variance = 0.01;
     double slip_min = -0.05;
     double slip_max = 0.05;
+    std::vector<double> x_coords;
+    std::vector<double> y_coords;
+    std::vector<std::vector<double>> covariance_matrix = {{1.0, 1.0}, {1.0, 1.0}};;
+    double obst_radius = 0.0762;
+    double obst_max_dist = 2.0;
+    double tube_var = 0.1;
     rigid2d::DiffDrive fake;             
-    rigid2d::DiffDrive fake_slip;             
+    rigid2d::DiffDrive fake_slip;        
+    // ROS members     
     ros::Time begin = ros::Time::now();
-    // ROS members
     ros::Subscriber cmd_vel_sub;
     ros::Publisher joint_state_pub;
+    ros::Publisher obst_pub;
+    ros::Publisher path_pub;
+    nav_msgs::Path path_msg; 
+    tf2_ros::TransformBroadcaster br;
+    ros::Publisher fake_sensor_pub;
     // helper functions
     void find_param(ros::NodeHandle & n);
     void cmd_vel_sub_callback(const geometry_msgs::Twist & vel);
     void pub_joint_state();
+    void pub_obst_marker();
+    void pub_path();
+    void tf_broadcast();
+    void pub_fake_sensor();
     std::mt19937 & get_random();
 };
 
@@ -62,11 +82,21 @@ class Handler {
 Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_slip(wheel_base/2, wheel_radius) {
   cmd_vel_sub = n.subscribe("cmd_vel", 10, &Handler::cmd_vel_sub_callback, this);
   joint_state_pub = n.advertise<sensor_msgs::JointState>("joint_states", 10);
-    
+  obst_pub = n.advertise<visualization_msgs::MarkerArray>( "obstacles", 10 );
+  path_pub = n.advertise<nav_msgs::Path>("real_path", 10);
+  path_msg.header.stamp=ros::Time::now();
+  path_msg.header.frame_id="odom"; 
+  fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
+  
   while (ros::ok()) {
     find_param(n);
-    
+
     pub_joint_state();
+    pub_obst_marker();
+    pub_path();
+    tf_broadcast();
+    pub_fake_sensor();
+
 
     ros::Rate loop_rate(10);
     ros::spinOnce();
@@ -93,6 +123,9 @@ std::mt19937 & Handler::get_random()
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_left = "wheel_left_link";
   std::string default_right = "wheel_right_link";
+  std::vector<double> default_x_coords = {0.0, 1.0, 2.0};
+  std::vector<double> default_y_coords = {0.0, 1.0, 2.0};
+  std::vector<std::vector<double>> default_cm = {{1.0, 1.0}, {1.0, 1.0}};
   n.param("wheel_base", wheel_base, 0.16);
   n.param("wheel_radius", wheel_radius, 0.033);
   n.param("left_wheel_joint", left_wheel_joint, default_left);
@@ -101,6 +134,13 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("noise_variance", noise_variance, 0.01);
   n.param("slip_min", slip_min, -0.05);
   n.param("slip_max", slip_max, 0.05);
+  n.param("x_coords", x_coords, default_x_coords);
+  n.param("y_coords", y_coords, default_y_coords);
+  n.param("covariance_matrix_0", covariance_matrix[0], default_cm[0]);
+  n.param("covariance_matrix_1", covariance_matrix[1], default_cm[1]);
+  n.param("obst_radius", obst_radius, 0.0762);
+  n.param("obst_max_dist", obst_max_dist, 2.0);
+  n.param("tube_var", tube_var, 0.01);
 }
 
 /// \brief Callback function for cmd_vel subscriber
@@ -169,6 +209,139 @@ void Handler::pub_joint_state() {
   js.position = pos;
   joint_state_pub.publish(js);
 }
+
+/// \brief Helper function for publishing obstacle markers
+void Handler::pub_obst_marker() {
+  visualization_msgs::MarkerArray marker_array;
+  for (unsigned i = 0; i < x_coords.size(); i++) {
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "odom";
+    marker.header.stamp = ros::Time();
+    marker.ns = "real";
+    marker.id = i;
+    marker.type = visualization_msgs::Marker::CYLINDER;
+    marker.action = visualization_msgs::Marker::ADD;
+    marker.pose.position.x = x_coords[i];
+    marker.pose.position.y = y_coords[i];
+    marker.pose.position.z = 0.5;
+    marker.pose.orientation.x = 0;
+    marker.pose.orientation.y = 0;
+    marker.pose.orientation.z = 0;
+    marker.pose.orientation.w = 1;
+    marker.scale.x = obst_radius*2;
+    marker.scale.y = obst_radius*2;
+    marker.scale.z = 1;
+    marker.color.a = 1.0; 
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+    marker_array.markers.push_back(marker);
+  }
+  obst_pub.publish( marker_array );
+}
+
+/// \brief Broadcast the transform between odom and the turtle
+void Handler::tf_broadcast() {
+  // world -> turtle
+  geometry_msgs::TransformStamped transformStamped;
+  transformStamped.header.stamp = ros::Time::now();
+  transformStamped.header.frame_id = "world";
+  transformStamped.child_frame_id = "turtle";
+  rigid2d::Transform2D config = fake.config();
+  transformStamped.transform.translation.x = config.x();
+  transformStamped.transform.translation.y = config.y();
+  transformStamped.transform.translation.z = 0.0;
+  tf2::Quaternion q;
+  q.setRPY(0, 0, config.theta());
+  transformStamped.transform.rotation.x = q.x();
+  transformStamped.transform.rotation.y = q.y();
+  transformStamped.transform.rotation.z = q.z();
+  transformStamped.transform.rotation.w = q.w();
+  br.sendTransform(transformStamped);
+
+  // tmp world -> odom
+  geometry_msgs::TransformStamped tmp;
+  tmp.header.stamp = ros::Time::now();
+  tmp.header.frame_id = "world";
+  tmp.child_frame_id = "odom";
+  tmp.transform.translation.x = 0.0;
+  tmp.transform.translation.y = 0.0;
+  tmp.transform.translation.z = 0.0;
+  tmp.transform.rotation.x = 0.0;
+  tmp.transform.rotation.y = 0.0;
+  tmp.transform.rotation.z = 0.0;
+  tmp.transform.rotation.w = 1.0;
+  br.sendTransform(tmp);
+}
+
+/// \brief publish real_path information from fake_slip turtle 
+void Handler::pub_path() {
+  geometry_msgs::PoseStamped path_pose;
+  path_pose.header.stamp = ros::Time::now();
+  path_pose.header.frame_id = "odom";
+  rigid2d::Transform2D config = fake_slip.config();
+  path_pose.pose.position.x = config.x();
+  path_pose.pose.position.y = config.y();
+  path_pose.pose.position.z = 0;
+  tf2::Quaternion q;
+  q.setRPY(0, 0, config.theta());
+  path_pose.pose.orientation.x = q.x();
+  path_pose.pose.orientation.y = q.y();
+  path_pose.pose.orientation.z = q.z();
+  path_pose.pose.orientation.w = q.w();
+
+  path_msg.poses.push_back(path_pose);
+  path_pub.publish(path_msg);
+}
+
+/// \brief Helper function for publishing fake sensor information
+void Handler::pub_fake_sensor() {
+  visualization_msgs::MarkerArray marker_array;
+  for (unsigned i = 0; i < x_coords.size(); i++) {
+    visualization_msgs::Marker marker;
+    marker.header.frame_id = "odom";
+    marker.header.stamp = ros::Time();
+    marker.ns = "fake";
+    marker.id = i;
+    marker.type = visualization_msgs::Marker::CYLINDER;
+
+    rigid2d::Transform2D config = fake_slip.config();
+    double dist = sqrt(pow((config.x()-x_coords[i]), 2) + pow((config.y()-y_coords[i]), 2));
+    if (dist < obst_max_dist) {
+      marker.action = visualization_msgs::Marker::ADD;
+    }
+    else {
+      marker.action = visualization_msgs::Marker::DELETE;
+    }
+
+          // add gaussian noise 
+    std::normal_distribution<> d(0, tube_var);
+    double noise_x = d(get_random());
+    double noise_y = d(get_random());
+
+    marker.pose.position.x = x_coords[i] + noise_x;
+    marker.pose.position.y = y_coords[i] + noise_y;
+    marker.pose.position.z = 0.5;
+
+
+    marker.pose.orientation.x = 0;
+    marker.pose.orientation.y = 0;
+    marker.pose.orientation.z = 0;
+    marker.pose.orientation.w = 1;
+    marker.scale.x = obst_radius*2;
+    marker.scale.y = obst_radius*2;
+    marker.scale.z = 1;
+    marker.color.a = 1.0; 
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+    marker_array.markers.push_back(marker);
+  }
+  fake_sensor_pub.publish( marker_array );
+}
+
+
+
 
 
 int main(int argc, char **argv) {

@@ -2,7 +2,7 @@
 <package format="2">
   <name>nurtlesim</name>
   <version>0.0.0</version>
-  <description>The nurtlesim package</description>
+  <description> Package simulating turtlebot and SLAM </description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -55,6 +55,14 @@
   <depend>rigid2d</depend>
   <build_depend>geometry_msgs</build_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_export_depend>visualization_msgs</build_export_depend>
+  <build_depend>tf2</build_depend>
+  <build_export_depend>tf2</build_export_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_export_depend>nav_msgs</build_export_depend>
   <exec_depend>turtlebot3_teleop</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
