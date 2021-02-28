@@ -6,6 +6,10 @@
     <param name="body_frame_id" value="base_footprint" type="string"/>
     <param name="left_wheel_joint" value="wheel_left_link" type="string"/>
     <param name="right_wheel_joint" value="wheel_right_link" type="string"/>
+    <param name="noise_mean" value="0.0" type="double"/>
+    <param name="noise_variance" value="0.01" type="double"/>
+    <param name="slip_min" value="-0.05" type="double"/>
+    <param name="slip_max" value="0.05" type="double"/>
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
     <node name="odometer" pkg="rigid2d" type="odometer"/>
