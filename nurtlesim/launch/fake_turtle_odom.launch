@@ -9,7 +9,7 @@
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
     <node name="odometer" pkg="rigid2d" type="odometer"/>
-    <node name="fake_turtle" pkg="rigid2d" type="fake_turtle" output="screen"/>
+    <node name="tube_world" pkg="nurtlesim" type="tube_world" output="screen"/>
 
     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find nuturtle_description)/urdf/turtlebot3_burger.urdf.xacro" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>

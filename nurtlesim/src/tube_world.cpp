@@ -26,7 +26,7 @@
 #include "rigid2d/diff_drive.hpp"
 
 
-/// \brief Helper class for node fake_turtle
+/// \brief Helper class for node tube_world
 class Handler {
   public:
     explicit Handler(ros::NodeHandle & n);
@@ -52,7 +52,7 @@ class Handler {
 };
 
 /// \brief Init Handler class
-/// \param n - fake_turtle NodeHandle
+/// \param n - tube_world NodeHandle
 Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius) {
   cmd_vel_sub = n.subscribe("cmd_vel", 10, &Handler::cmd_vel_sub_callback, this);
   joint_state_pub = n.advertise<sensor_msgs::JointState>("joint_states", 10);
@@ -71,7 +71,7 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius) {
 
 /// \brief Find parameters wheel_base, and wheel_radius, left_wheel_joint, and right_wheel_joint
 /// from ROS parameter server, otherwise set to default value
-/// \param n - fake_turtle NodeHandle
+/// \param n - tube_world NodeHandle
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_left = "wheel_left_link";
   std::string default_right = "wheel_right_link";
@@ -101,7 +101,7 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
       current_rad_right += wheel_vel.vR;
 
       rigid2d::Transform2D config = fake.config();
-      ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y() << " period = " << period_secs);
+      // ROS_INFO_STREAM("updated fake: " << config.theta() << config.x() << config.y() << " period = " << period_secs);
    }
 }
 
@@ -117,7 +117,7 @@ void Handler::pub_joint_state() {
 
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "fake_turtle");
+  ros::init(argc, argv, "tube_world");
   ros::NodeHandle n;
   Handler handler(n);
   return 0;
