@@ -11,7 +11,7 @@
     <param name="slip_min" value="-0.05" type="double"/>
     <param name="slip_max" value="0.05" type="double"/>
     <rosparam param="x_coords">[1.0, 2.0, 3.0]</rosparam>
-    <rosparam param="y_coords">[1.0, 2.0, 3.0]</rosparam>
+    <rosparam param="y_coords">[0.0, 2.0, 3.0]</rosparam>
     <rosparam param="covariance_matrix_0">[1.0, 1.0]</rosparam>
     <rosparam param="covariance_matrix_1">[1.0, 1.0]</rosparam>
     <param name="obst_radius" value="0.0762" type="double"/>

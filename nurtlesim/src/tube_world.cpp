@@ -19,7 +19,8 @@
 
 #include <vector>
 #include <string>
-#include<random>
+#include <random>
+#include <cmath>
 #include "ros/ros.h"
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/JointState.h"
@@ -41,6 +42,7 @@ class Handler {
     // variables 
     double wheel_base = 0.16;
     double wheel_radius = 0.033;
+    double robot_radius = 0.12;
     std::string left_wheel_joint;
     std::string right_wheel_joint;
     double current_rad_left = 0;
@@ -66,6 +68,7 @@ class Handler {
     nav_msgs::Path path_msg; 
     tf2_ros::TransformBroadcaster br;
     ros::Publisher fake_sensor_pub;
+    ros::Publisher cmd_vel_pub;
     // helper functions
     void find_param(ros::NodeHandle & n);
     void cmd_vel_sub_callback(const geometry_msgs::Twist & vel);
@@ -74,6 +77,7 @@ class Handler {
     void pub_path();
     void tf_broadcast();
     void pub_fake_sensor();
+    void check_collision();
     std::mt19937 & get_random();
 };
 
@@ -87,6 +91,7 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   path_msg.header.stamp=ros::Time::now();
   path_msg.header.frame_id="odom"; 
   fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
+  cmd_vel_pub = n.advertise<geometry_msgs::Twist >( "cmd_vel", 10 );
   
   while (ros::ok()) {
     find_param(n);
@@ -171,8 +176,10 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
       omg = omg*period_secs;
       vx = vx*period_secs;
 
+
       rigid2d::Twist2D t {omg, vx, 0};
       rigid2d::DiffDriveVel wheel_vel = fake.vel_from_twist(t);
+
       fake.update(wheel_vel.vL, wheel_vel.vR);
 
       std::uniform_real_distribution<double> d_slip(slip_min, slip_max);
@@ -190,13 +197,17 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
       current_rad_left += vL_slip;
       current_rad_right += vR_slip;
 
+      if (omg != 0 || vx != 0) {
+        check_collision();
+      }
+
       // ROS_INFO_STREAM("Add slipping " << wheel_vel.vL << " " << wheel_vel.vR << " to " << vL_slip << " " << vR_slip );
 
-      rigid2d::Transform2D config = fake.config();
-      ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
+      // rigid2d::Transform2D config = fake.config();
+      // ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
 
-      rigid2d::Transform2D config_slip = fake_slip.config();
-      ROS_INFO_STREAM("updated fake_slip: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
+      // rigid2d::Transform2D config_slip = fake_slip.config();
+      // ROS_INFO_STREAM("updated fake_slip: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
    }
 }
 
@@ -247,7 +258,7 @@ void Handler::tf_broadcast() {
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "world";
   transformStamped.child_frame_id = "turtle";
-  rigid2d::Transform2D config = fake.config();
+  rigid2d::Transform2D config = fake_slip.config();
   transformStamped.transform.translation.x = config.x();
   transformStamped.transform.translation.y = config.y();
   transformStamped.transform.translation.z = 0.0;
@@ -340,7 +351,66 @@ void Handler::pub_fake_sensor() {
   fake_sensor_pub.publish( marker_array );
 }
 
+/// \brief Helper function for collision detection between robot and obstacles.
+/// After collision, this function is going to move robot along the tangent line between 
+/// the robot and obstacle to move the robot away. 
+void Handler::check_collision() {
+  rigid2d::Transform2D config_slip = fake_slip.config();
+  ROS_INFO_STREAM("turtle: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
+  
+  // simulate robot as a sphere 
+  visualization_msgs::MarkerArray marker_array;
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "odom";
+  marker.header.stamp = ros::Time();
+  marker.ns = "fake_slip";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  rigid2d::Transform2D config = fake_slip.config();
+  marker.pose.position.x = config.x();
+  marker.pose.position.y = config.y();
+  marker.pose.position.z = 0;
+  marker.pose.orientation.x = 0;
+  marker.pose.orientation.y = 0;
+  marker.pose.orientation.z = 0;
+  marker.pose.orientation.w = 1;
+  marker.scale.x = robot_radius*2;
+  marker.scale.y = robot_radius*2;
+  marker.scale.z = robot_radius*2;
+  marker.color.a = 1.0; 
+  marker.color.r = 0.0;
+  marker.color.g = 0.0;
+  marker.color.b = 1.0;
+  marker_array.markers.push_back(marker);
+  obst_pub.publish( marker_array );
 
+  // check collision
+  for (unsigned i = 0; i < x_coords.size(); i++) {
+    double dist = sqrt(pow((config.x()-x_coords[i]), 2) + pow((config.y()-y_coords[i]), 2));
+    if (dist <= robot_radius+obst_radius) {
+      double dist_x = config.x()-x_coords[i];
+      double dist_y = config.y()-y_coords[i];
+
+      double angle = atan2(dist_y, dist_x);
+      double sign = -angle/abs(angle);
+      double tx = sign*dist*sin(angle);
+      double ty = sign*dist*cos(angle);
+      double tomg = dist*atan2(ty, tx);
+      ROS_INFO_STREAM(angle << " --> tangent: " << tx << " " << ty << " " << tomg);
+
+      geometry_msgs::Twist t;
+      t.linear.x = tx;
+      t.angular.z = tomg;
+      cmd_vel_pub.publish(t);
+    
+      break;
+    }
+  }
+  
+
+
+}
 
 
 
