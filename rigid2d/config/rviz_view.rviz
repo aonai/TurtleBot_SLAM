@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /TF1
         - /TF1/Frames1
         - /MarkerArray2
       Splitter Ratio: 0.5
@@ -216,6 +215,7 @@ Visualization Manager:
       Marker Topic: obstacles
       Name: MarkerArray
       Namespaces:
+        fake_slip: true
         real: true
       Queue Size: 100
       Value: true
@@ -255,7 +255,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 10.64120101928711
+      Distance: 2.3165290355682373
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -263,17 +263,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.0506301075220108
-        Y: 0.06125590205192566
-        Z: -0.07911545038223267
+        X: 0.7437822818756104
+        Y: -0.056530192494392395
+        Z: -0.05691869929432869
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7753980159759521
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
-      Yaw: 0.7753980159759521
+      Yaw: 3.1804027557373047
     Saved: ~
 Window Geometry:
   Displays:

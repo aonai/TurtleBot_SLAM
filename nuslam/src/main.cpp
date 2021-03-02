@@ -38,8 +38,20 @@ class Handler {
 /// \brief Init Handler class
 /// \param n - tube_world NodeHandle
 Handler::Handler(ros::NodeHandle & n) {
-    ROS_INFO("hello");
-    kalman::test();
+    rigid2d::DiffDrive fake {0.08, 0.033};
+    rigid2d::Twist2D t {0, 1, 0}; //omg=0, vx=1
+    rigid2d::DiffDriveVel wheel_vel = fake.vel_from_twist(t);
+    fake.update(wheel_vel.vL, wheel_vel.vR);
+    
+    rigid2d::Transform2D config = fake.config();
+    ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
+
+    arma::vec map_state {4.0, 4.0};
+    kalman::StateVec s {map_state, 0.01, 0.01};
+
+
+    s.ekf_update(t, 5, 0.9273);
+
 }
 
 
