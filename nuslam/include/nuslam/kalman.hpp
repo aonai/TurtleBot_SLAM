@@ -35,7 +35,7 @@ namespace kalman {
             /// Map state will remain constant.
             /// Equation (5) and (7) of slam.pdf
             /// \param t - commanded twist
-            void estimate(rigid2d::Twist2D t);
+            arma::mat estimate(rigid2d::Twist2D t);
 
             /// \brief Compute the derivative of state transition with respect to state 
             /// based on a twist command
@@ -62,14 +62,24 @@ namespace kalman {
 
             /// \brief Update covariance matrix 
             /// \param t - commanded twist
-            void update_cov(rigid2d::Twist2D t); 
+            void update_cov(arma::mat A); 
 
             /// Calculate the Kalman gain from linearized measurement model
             /// Equation(26)
             /// \param j - index of obstacle to measure 
-            arma::mat K_mat(unsigned j);
+            arma::mat K_mat(arma::mat H);
 
-            void ekf_update(rigid2d::Twist2D t, double actual_d, double acutal_angle);
+            void ekf_update(rigid2d::Twist2D t, arma::vec actual_d, arma::vec acutal_angle);
+
+            arma::vec get_robot_state();
+
+            arma::vec get_map_state();
+
+            void set_map_state(arma::vec ms);
+
+            void set_robot_state(arma::vec rs);
+
+            void reset_cov();
 
             
     };
