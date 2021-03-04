@@ -51,48 +51,13 @@ int main() {
 }
 **/
 
-/**
 int main() {
-    rigid2d::DiffDrive dd(1, 1);
-    // rigid2d::Transform2D T = dd.config();
-    
-    // rigid2d::Twist2D t2{3.14/4, 1, 2};
-    // std::cout << "after twist: " << T.integrateTwist(t2) << std::endl;
+    rigid2d::Vector2D trans {1.56556, 0.919176};
+    rigid2d::Transform2D A {trans, 0.530897};
 
-    // rigid2d::Twist2D t{0.3, 0.2, 0};
-    // std::cout << "after twist: " << T.integrateTwist(t) << std::endl;
-    // std::cout << "twist: " << T << std::endl;
-    
-    // rigid2d::DiffDriveVel vel = dd.vel_from_twist(t);
-    // std::cout << "vel = " << vel.vL << " " << vel.vR << std::endl;
+    rigid2d::Vector2D trans2 {1, 0.5};
+    rigid2d::Transform2D B {trans2, 0.463648};
 
-    // dd.update(0.1, 0.1, false);
-    // std::cout << "update = " << dd.config() << std::endl;
-
-    // dd.update(-0.1, 0.1, false);
-    // std::cout << "update = " << dd.config() << std::endl;
-    
-    // // dd.update(1, -1, false);
-    // // std::cout << "update = " << dd.config() << std::endl;
-
-    // dd.update(0.1, 0.1, false);
-    // std::cout << "update = " << dd.config() << std::endl;
-
-
-    // dd.update(-0.2, 0.2, false);
-    // std::cout << "update = " << dd.config() << std::endl;
-
-
-    // dd.update(-0.1, 0.5, true);
-    // std::cout << "update = " << dd.config() << std::endl;
-
-
-
-    // rigid2d::Transform2D test (3.14/4);
-    // rigid2d::Transform2D eye;
-    // std::cout << "t*eye = " << test*eye << std::endl;
-
-    // std::cout << rigid2d::normalize_angle(3.34) << std::endl;
+    std::cout << A.inv()*B << std::endl;
 
 }
-**/

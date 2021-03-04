@@ -2,7 +2,7 @@
 <package format="2">
   <name>nuslam</name>
   <version>0.0.0</version>
-  <description>The nuslam package</description>
+  <description>Packaging visualizing turtle states simualted from extended kalman filter slam</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -53,6 +53,19 @@
   <build_export_depend>roscpp</build_export_depend>
   <exec_depend>roscpp</exec_depend>
   <depend>rigid2d</depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_export_depend>nav_msgs</build_export_depend>
+  <build_depend>tf2_ros</build_depend>
+  <build_export_depend>tf2_ros</build_export_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_depend>geometry_msgs</build_depend>
+  <build_export_depend>geometry_msgs</build_export_depend>
+  <build_depend>tf2</build_depend>
+  <build_export_depend>tf2</build_export_depend>
+  <build_depend>visualization_msgs</build_depend>
+  <build_export_depend>visualization_msgs</build_export_depend>
+  <exec_depend>nurtlesim</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

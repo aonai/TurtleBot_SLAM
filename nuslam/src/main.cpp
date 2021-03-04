@@ -41,48 +41,57 @@ class Handler {
 /// \param n - tube_world NodeHandle
 Handler::Handler(ros::NodeHandle & n) {
     rigid2d::DiffDrive fake {0.08, 0.033};
-    rigid2d::Twist2D t {0, 1, 0}; 
+    rigid2d::Twist2D t {0, 0.5, 0}; 
     rigid2d::DiffDriveVel wheel_vel = fake.vel_from_twist(t);
     fake.update(wheel_vel.vL, wheel_vel.vR);
     
     rigid2d::Transform2D config = fake.config();
-    ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
+    // ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
 
-    arma::vec map_state {4.0, 4.0};
-    kalman::StateVec s {map_state, 0.01, 0.01};
+    arma::vec map_state {1, 1, 3, 3, 2, 2};
+    kalman::StateVec s {map_state, 0, 0};
 
-    arma::vec odom {config.theta(), config.x(), config.y()};
-    arma::vec d {5.66, sqrt(2)};
-    arma::vec ang {0.78, -0.78};
+    arma::vec d {0.5, 2, 4};
+    arma::vec ang {0.788, 0.123, -0.9};
     s.ekf_update(t, d, ang);
-    align_map(s.get_robot_state(), s.get_map_state());
+    
+    arma::vec check =  s.measurement_vec(0);
+    arma::vec check1 =  s.measurement_vec(1);
+    arma::vec check2 =  s.measurement_vec(2);
+    std::cout << 2*rigid2d::PI+check(1) << " or vec ="  <<check.t() <<std::endl;
+    std::cout << 2*rigid2d::PI+check1(1) << " or vec ="  <<check1.t() <<std::endl;
+    std::cout << 2*rigid2d::PI+check2(1) << " or vec ="  <<check2.t() <<std::endl;
 
-}
+    rigid2d::Vector2D v {1, 1};
+    rigid2d::Transform2D trans {rigid2d::PI/4};
+    std::cout << trans(v) << std::endl;
 
-void Handler::align_map(arma::vec robot_state, arma::vec map_state) {
-  ROS_INFO_STREAM("robot " << robot_state);
-  ROS_INFO_STREAM("map " << map_state);
+    // arma::vec m = s.get_map_state();
+    // rigid2d::Vector2D robot_v {m(1), m(2)};
+    // rigid2d::Transform2D T_map_obst {robot_v, map_state(0)};
+    // std::cout << "T_map_obst " << T_map_obst << std::endl;
+    // rigid2d::Vector2D o {1*cos(3), 1*sin(3)};
+    // rigid2d::Transform2D To {o, 3};
+    // std::cout << "To " << To << std::endl;
+    // rigid2d::Transform2D T_map_odom = T_map_obst * To.inv();
+    // std::cout << "T_map_odom " << T_map_odom << std::endl;
 
-  arma::vec land {4.0, 4.0, 1, -1};
-  arma::vec odom {0, 0, 0};
+    // double a = 0;
+    // for (unsigned i = 0; i < 10; i++) {
+    //   a += 1;
+    //   a = rigid2d::normalize_angle(a);
 
-  int n_obst = map_state.size()/2;
-  arma::vec remap_state (3, arma::fill::zeros);
-  for (int i = 0; i < n_obst; i++) {
-    double ms_ang = atan2(map_state[2*i+1]-robot_state[2],map_state[2*i]-robot_state[1]) - robot_state[0];
-    double land_ang = atan2(land[2*i+1]-odom[2],land[2*i]-odom[1]) - odom[0];
-    remap_state(0) = remap_state(0) + ms_ang - land_ang;
-    remap_state(1) = remap_state(1) + map_state(2*i) - land(2*i);
-    remap_state(2) = remap_state(2) + map_state(2*i+1) - land(2*i+1);
-    // ROS_INFO_STREAM(ms_ang << " " << land_ang <<" remap " << remap_state);
-  }
-  remap_state = -remap_state/n_obst;
-  ROS_INFO_STREAM("remap " << remap_state);
-  arma::vec tmp (3);
-  tmp(0) = robot_state(0) + remap_state(0);
-  tmp(1) = robot_state(1) + remap_state(1);
-  tmp(2) = robot_state(2) + remap_state(2);
-  ROS_INFO_STREAM("remaped robot " << tmp);
+    //   arma::vec d {1, -1, -1};
+    //   arma::vec ang {a, -1, -1};
+      
+    //   rigid2d::Twist2D t_tmp {1, 0, 0};
+    //   s.ekf_update(t_tmp, d, ang);
+    //   // s.reset_cov();
+    //   arma::vec check =  s.measurement_vec(0);
+    //   // check(1) = rigid2d::normalize_angle(check(1));
+    //   std::cout << a << "-------- update ang=" << 2*rigid2d::PI+check(1) << " or vec="  <<check.t() <<std::endl;
+    // }
+    // // std::cout << "test " << s.get_map_state();
 
 }
 

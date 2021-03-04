@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstring>
 #include "rigid2d/rigid2d.hpp"
+// #include "../include/rigid2d/rigid2d.hpp"
 
 namespace rigid2d {
 
@@ -232,7 +233,8 @@ namespace rigid2d {
     }
 
     std::ostream & operator<<(std::ostream & os, const Transform2D & tf) {
-        os << "dtheta (degrees): " << tf.deg << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
+        os << "dtheta (rad): " << tf.rad << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
+        // os << "dtheta (degrees): " << normalize_angle(tf.deg) << " dx: " << tf.tran.x << " dy: " << tf.tran.y;
         // os << "mat = " << std::endl;
         // for (int i = 0; i < 3; ++i)
         // {
@@ -287,7 +289,11 @@ namespace rigid2d {
     }
 
     double normalize_angle(double rad) {
-        return fmod(rad, PI);
+
+        if (rad < -rigid2d::PI) {
+            return 2*rigid2d::PI + rad;
+        }
+        return fmod(rad, 2*PI);
     }
 
 

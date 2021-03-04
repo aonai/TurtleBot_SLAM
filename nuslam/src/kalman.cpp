@@ -12,24 +12,24 @@ namespace kalman {
     {   
         reset_cov();
 
-        std::cout << "cov " << cov_mat << std::endl;
-        std::cout << "robot " << robot_state << std::endl;
-        std::cout << "map " << map_state << std::endl;
+        // std::cout << "cov " << cov_mat << std::endl;
+        // std::cout << "robot " << robot_state << std::endl;
+        // std::cout << "map " << map_state << std::endl;
     }
 
-    StateVec::StateVec(arma::vec robot_state, arma::vec map_state, arma::mat cov_mat, double state_noise_var, double sensor_noise_var):
+    StateVec::StateVec(arma::vec robot_state, arma::vec map_state, double state_noise_var, double sensor_noise_var):
         robot_state(robot_state), 
         map_state(map_state),
-        cov_mat(cov_mat),
         state_noise_var(state_noise_var),
         sensor_noise_var(sensor_noise_var)
     {   
         robot_state(angle_idx) = rigid2d::normalize_angle(robot_state(angle_idx));
-        std::cout << "cov " << cov_mat << std::endl;
+        reset_cov();
+        // std::cout << "cov " << cov_mat << std::endl;
         std::cout << "robot = " << robot_state << std::endl;
         std::cout << "map = " << map_state << std::endl;
-        std::cout << "state noise = " << state_noise_var << std::endl;
-        std::cout << "sensor noise = " << sensor_noise_var << std::endl;
+        // std::cout << "state noise = " << state_noise_var << std::endl;
+        // std::cout << "sensor noise = " << sensor_noise_var << std::endl;
     }
 
     arma::mat StateVec::estimate(rigid2d::Twist2D t) {
@@ -84,7 +84,14 @@ namespace kalman {
 
         m(0) = sqrt(pow(dist_x,2) + pow(dist_y,2));
         m(1) = atan2(dist_y, dist_x) - robot_state(angle_idx);
-        std::cout << "measurement = " << m.t() << std::endl;
+        // if (rigid2d::almost_equal(-rigid2d::PI, robot_state(angle_idx),0.001) && atan2(dist_y, dist_x)>0 ) {
+        //     std::cout << "normalize " << std::endl;
+        //     m(1) = atan2(dist_y, dist_x) - rigid2d::PI;
+        // }
+        // std::cout << "@ " << dist_x << " " << dist_y << std::endl;
+        // std::cout << atan2(dist_y, dist_x) << " - " << robot_state(angle_idx) << std::endl;
+        // m(1) = rigid2d::normalize_angle(m(1));   
+        // std::cout << "measurement = " << m.t() << std::endl;
         return m;
     }
 
@@ -110,13 +117,13 @@ namespace kalman {
         H(0, i) = dist_y/sqrt(d);
         H(1, i) = dist_x/d;
 
-        std::cout << "H = " << H << std::endl;
+        // std::cout << "H = " << H << std::endl;
         return H;
     }
 
     void StateVec::update_cov(arma::mat A) {
-        std::cout << "A mat " << A << std::endl;
-        std::cout << "state noise var = " << state_noise_var << std::endl;
+        // std::cout << "A mat " << A << std::endl;
+        // std::cout << "state noise var = " << state_noise_var << std::endl;
         
         unsigned n = 3 + map_state.size();
         arma::mat Q (n, n, arma::fill::zeros);
@@ -135,79 +142,113 @@ namespace kalman {
         R(1,1) = sensor_noise_var;
 
         arma::mat K (3+map_state.size(), 2);
-
         K = H * cov_mat * H.t() + R;
-        K = cov_mat * H.t() * arma::inv(K);
-        std::cout << "K = " << K << std::endl;
+        // std::cout << "inside K = " << arma::pinv(K, 0.01) << std::endl;
+        K = cov_mat * H.t() * arma::pinv(K, 0.01);
+
 
         return K;
     }
 
 
-    void StateVec::ekf_update(rigid2d::Twist2D t, arma::vec actual_d, arma::vec acutal_angle) {
-        std::cout << "--------- start ----------- " << std::endl;
-        arma::vec orig_map = map_state;
-        std::cout << "original map = " << orig_map << std::endl;
+    void StateVec::ekf_update(rigid2d::Twist2D t, arma::vec actual_d, arma::vec actual_angle) {
+        // std::cout << "--------- start ----------- " << std::endl;
+        arma::vec old_map_state = map_state;
+        // std::cout << "original map = " << orig_map << std::endl;
+        // std::cout << "noises " << state_noise_var << " " << sensor_noise_var << std::endl;
+        // for (unsigned i = 0; i < actual_angle.size(); i++) {
+        //     actual_angle(i) = rigid2d::normalize_angle(actual_angle(i));
+        // }
 
-
-        std::cout << "--------- update ----------- " << std::endl;
-        // std::cout << "update robot = " << robot_state << std::endl;
+        // std::cout << "--------- update ----------- " << std::endl;
         arma::mat old_robot_state = robot_state;
         arma::mat A = estimate(t);
-        if (actual_d.size() >= map_state.size()/2) {
+        // std::cout << "update robot = " << robot_state << std::endl;
+        if (actual_d.size() > map_state.size()/2) {
             map_state = arma::vec (actual_d.size()*2);
             reset_cov();
         }
         for (unsigned j = 0; j < actual_d.size(); j++) {
-            map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(acutal_angle(j) + robot_state(angle_idx));
-            map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(acutal_angle(j) + robot_state(angle_idx));
+            if (actual_d[j] > 0) {
+                map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(actual_angle(j) + robot_state(angle_idx));
+                map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(actual_angle(j) + robot_state(angle_idx));
+            }
         }
-        set_robot_state(old_robot_state);       
-        arma::vec odom = robot_state;
-        std::cout << "odom robot = " << odom << std::endl;
-        A = estimate(t);
-        std::cout << "update robot = " << robot_state << std::endl;
-        std::cout << "update map = " << map_state << std::endl;
+        // set_robot_state(old_robot_state);       
+        // arma::vec last_robot_state = robot_state;
+        // std::cout << "oring robot = " << last_robot_state << std::endl;
+        // A = estimate(t);
+        // std::cout << "update robot = " << robot_state << std::endl;
+        // std::cout << "update map = " << map_state << std::endl;
         update_cov(A);
-        std::cout << "update cov = " << cov_mat << std::endl;
+        // std::cout << "update cov = " << cov_mat << std::endl;
 
         for (unsigned obst_idx = 0; obst_idx < map_state.size()/2; obst_idx++) {
-            std::cout << "--------- 1 ----------- " << std::endl;
-            arma::vec z = measurement_vec(obst_idx);       // Equation (25)   
-            std::cout << "--------- 2 ----------- " << std::endl;
-            arma::mat H = H_mat(obst_idx);
-            arma::mat K = K_mat(H);                 // Equation (26)
-            std::cout << "--------- 3 ----------- " << std::endl;
-            arma::vec z_act (2,arma::fill::zeros);
-            z_act(0) = actual_d(obst_idx);
-            z_act(1) = acutal_angle(obst_idx);
-            z_act(1) = rigid2d::normalize_angle(z_act(1));
-            arma::vec z_diff = z_act - z;
-            std::cout << "diff z = " << z_diff << std::endl;
-            arma::vec tmp = K * z_diff;
-            robot_state(0) = robot_state(0) + tmp(0);
-            robot_state(1) = robot_state(1) + tmp(1);
-            robot_state(2) = robot_state(2) + tmp(2);      // Equation (27)
-            robot_state(2) = rigid2d::normalize_angle(robot_state(2));
+            if (actual_d(obst_idx) > 0) {
+                // std::cout << "--------- 1 ----------- " << std::endl;
+                arma::vec z = measurement_vec(obst_idx);       // Equation (25)
+                // std::cout << "estimate z = " << z << std::endl;
+                // std::cout << "--------- 2 ----------- " << std::endl;
+                arma::mat H = H_mat(obst_idx);
+                // std::cout << "H = " << H;
+                arma::mat K = K_mat(H);                 // Equation (26)
+                // std::cout << "K = " << K;
+                // std::cout << "--------- 3 ----------- " << std::endl;
+                arma::vec z_act (2,arma::fill::zeros);
 
-            for (unsigned i =0 ; i < map_state.size(); i++) {
-                map_state(i) = map_state(i) + tmp(3+i);    // Equation (27)
+                z_act(0) = actual_d(obst_idx);
+                z_act(1) = actual_angle(obst_idx);
+                arma::vec z_diff = z_act - z;
+                if (abs(z_diff(1)) >= 3) {
+                    // std::cout << "@ normalize from " << z(1) <<std::endl;
+                    z(1) = 2*rigid2d::PI + z(1); 
+                    z_diff = z_act - z;
+                }
+                // std::cout << "actual z = " << z_act << std::endl;
+                // std::cout << "estimate z = " << z << std::endl;
+                // std::cout << "diff z = " << z_diff << std::endl;
+                arma::vec tmp = K * z_diff;
+                // std::cout << "K tmp = " << tmp << std::endl;
+                robot_state(0) = robot_state(0) + tmp(0);
+                robot_state(1) = robot_state(1) + tmp(1);
+                robot_state(2) = robot_state(2) + tmp(2);      // Equation (27)
+                robot_state(2) = rigid2d::normalize_angle(robot_state(2));
+
+                for (unsigned i =0 ; i < map_state.size(); i++) {
+                    map_state(i) = map_state(i) + tmp(3+i);    // Equation (27)
+                }
+                // std::cout << "posterior robot = " << robot_state << std::endl;
+                // std::cout << "posterior map = " << map_state << std::endl;
+
+                // std::cout << "--------- 4 ----------- " << std::endl;
+                // std::cout << "cov = " << cov_mat << std::endl;
+                arma::mat tmp2 (arma::size(cov_mat), arma::fill::eye);
+                tmp2 = tmp2 - K * H;
+                // std::cout << "tmp2 = " << tmp2 * cov_mat << std::endl;
+                cov_mat = tmp2 * cov_mat;                      // Equation (28)
+
+                // std::cout << "--------- Check z ----------- " << std::endl;
+                // measurement_vec(obst_idx);       
+                // arma::vec check = measurement_vec(obst_idx);  
+                // std::cout << " check " << check.t() << " vs " << actual_d[obst_idx] << " " << actual_angle[obst_idx] << std::endl;   
+                // std::cout << "check_0 = " << check(0) <<std::endl;  
+                // std::cout << "act = " << actual_d[obst_idx] <<std::endl;  
+                // if (check(0)-actual_d[obst_idx] < -0.001 || check(0)-actual_d[obst_idx] > 0.01) {
+                //     std::cout << "Reset cov " <<std::endl;
+                //     reset_cov();
+                //     map_state = orig_map;
+                //     robot_state = old_robot_state;
+                //     std::cout << robot_state << std::endl;
+                //     std::cout << map_state << std::endl;
+                //     // ekf_update(t, actual_d, actual_angle);
+                // }
             }
-            std::cout << "posterior robot = " << robot_state << std::endl;
-            std::cout << "posterior map = " << map_state << std::endl;
-
-            std::cout << "--------- 4 ----------- " << std::endl;
-            arma::mat tmp2 (arma::size(cov_mat), arma::fill::eye);
-            tmp2 = tmp2 - K * H;
-            cov_mat = tmp2 * cov_mat;                      // Equation (28)
-            std::cout << "posterior cov = " << cov_mat << std::endl;
-
-            std::cout << "--------- Check z ----------- " << std::endl;
-            measurement_vec(obst_idx);       
-
         }
 
-
+        // std::cout << "posterior robot = " << robot_state << std::endl;
+        // std::cout << "posterior map = " << map_state << std::endl;
+        // std::cout << "posterior cov = " << cov_mat << std::endl;
+        // reset_cov();
     }
 
     arma::vec StateVec::get_robot_state() {
@@ -220,6 +261,7 @@ namespace kalman {
 
     void StateVec::set_map_state(arma::vec ms) {
         map_state = ms;
+        reset_cov();
     }
 
     void StateVec::set_robot_state(arma::vec rs) {
@@ -251,7 +293,11 @@ namespace kalman {
         }
     }
 
+    void StateVec::set_noises(double state_nv, double sensor_nv) {
+        state_noise_var = state_nv;
+        sensor_noise_var = sensor_nv;
 
+    }
 
     std::mt19937 & get_random()
     {

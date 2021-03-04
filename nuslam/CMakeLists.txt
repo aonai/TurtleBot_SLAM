@@ -8,8 +8,14 @@ project(nuslam)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+    geometry_msgs
+    nav_msgs
     rigid2d
     roscpp
+    sensor_msgs
+    tf2
+    tf2_ros
+    visualization_msgs
 )
 find_package(Armadillo REQUIRED)
 
@@ -106,8 +112,14 @@ find_package(Armadillo REQUIRED)
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES  ${PROJECT_NAME}
+ CATKIN_DEPENDS geometry_msgs
+ CATKIN_DEPENDS nav_msgs
  CATKIN_DEPENDS rigid2d
  CATKIN_DEPENDS roscpp
+ CATKIN_DEPENDS sensor_msgs
+ CATKIN_DEPENDS tf2
+ CATKIN_DEPENDS tf2_ros
+ CATKIN_DEPENDS visualization_msgs
   #  DEPENDS system_lib
 )
 ###########
@@ -136,19 +148,28 @@ add_library(${PROJECT_NAME}
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_main src/main.cpp)
+add_executable(${PROJECT_NAME}_slam src/slam.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
 set_target_properties(${PROJECT_NAME}_main PROPERTIES OUTPUT_NAME main PREFIX "")
+set_target_properties(${PROJECT_NAME}_slam PROPERTIES OUTPUT_NAME slam PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_main ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_slam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_main
+  ${catkin_LIBRARIES}
+  rigid2d
+  ${PROJECT_NAME}
+  ${ARMADILLO_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_slam
   ${catkin_LIBRARIES}
   rigid2d
   ${PROJECT_NAME}
@@ -171,6 +192,9 @@ target_link_libraries(${PROJECT_NAME}_main
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html
 install(TARGETS ${PROJECT_NAME}_main
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS ${PROJECT_NAME}_slam
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

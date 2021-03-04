@@ -28,7 +28,7 @@ namespace kalman {
             /// \param robot_state - robot state
             /// \param map_state - map state
             /// \param cov - covariance matrix
-            StateVec(arma::vec robot_state, arma::vec map_state, arma::mat cov_mat, double state_noise_var, double sensor_noise_var);
+            StateVec(arma::vec robot_state, arma::vec map_state, double state_noise_var, double sensor_noise_var);
 
             /// \brief Update robot state based on a twist command 
             /// Robot state are estimated values.
@@ -81,6 +81,7 @@ namespace kalman {
 
             void reset_cov();
 
+            void set_noises(double state_nv, double sensor_nv);
             
     };
 

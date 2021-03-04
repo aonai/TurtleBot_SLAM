@@ -29,6 +29,7 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_ros/transform_broadcaster.h"
 #include "nav_msgs/Path.h"
+#include "std_msgs/Float64MultiArray.h"
 #include "rigid2d/rigid2d.hpp"
 #include "rigid2d/diff_drive.hpp"
 
@@ -44,9 +45,13 @@ class Handler {
     double wheel_radius = 0.033;
     double robot_radius = 0.12;
     std::string left_wheel_joint;
+    std::string left_wheel_joint_slip;
     std::string right_wheel_joint;
+    std::string right_wheel_joint_slip;
     double current_rad_left = 0;
+    double current_rad_left_slip = 0;
     double current_rad_right = 0;   
+    double current_rad_right_slip = 0;   
     double noise_mean = 0.0;
     double noise_variance = 0.01;
     double slip_min = -0.05;
@@ -68,7 +73,7 @@ class Handler {
     nav_msgs::Path path_msg; 
     tf2_ros::TransformBroadcaster br;
     ros::Publisher fake_sensor_pub;
-    ros::Publisher cmd_vel_pub;
+    ros::Publisher fake_measurenmt_pub;
     // helper functions
     void find_param(ros::NodeHandle & n);
     void cmd_vel_sub_callback(const geometry_msgs::Twist & vel);
@@ -77,7 +82,8 @@ class Handler {
     void pub_path();
     void tf_broadcast();
     void pub_fake_sensor();
-    void check_collision();
+    void check_collision(double period_secs);
+    void update_turtle(double period_secs, double omg, double vx, rigid2d::DiffDrive & turtle, bool add_noise);
     std::mt19937 & get_random();
 };
 
@@ -89,9 +95,10 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   obst_pub = n.advertise<visualization_msgs::MarkerArray>( "obstacles", 10 );
   path_pub = n.advertise<nav_msgs::Path>("real_path", 10);
   path_msg.header.stamp=ros::Time::now();
-  path_msg.header.frame_id="odom"; 
+  path_msg.header.frame_id="world"; 
   fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
-  cmd_vel_pub = n.advertise<geometry_msgs::Twist >( "cmd_vel", 10 );
+  fake_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "fake_measurement", 10 );
+
   
   while (ros::ok()) {
     find_param(n);
@@ -128,6 +135,8 @@ std::mt19937 & Handler::get_random()
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_left = "wheel_left_link";
   std::string default_right = "wheel_right_link";
+  std::string default_left_slip = "wheel_left_link_slip";
+  std::string default_right_slip = "wheel_right_link_slip";
   std::vector<double> default_x_coords = {0.0, 1.0, 2.0};
   std::vector<double> default_y_coords = {0.0, 1.0, 2.0};
   std::vector<std::vector<double>> default_cm = {{1.0, 1.0}, {1.0, 1.0}};
@@ -135,6 +144,8 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("wheel_radius", wheel_radius, 0.033);
   n.param("left_wheel_joint", left_wheel_joint, default_left);
   n.param("right_wheel_joint", right_wheel_joint, default_right);
+  n.param("left_wheel_joint_slip", left_wheel_joint_slip, default_left_slip);
+  n.param("right_wheel_joint_slip", right_wheel_joint_slip, default_right_slip);
   n.param("noise_mean", noise_mean, 0.0);
   n.param("noise_variance", noise_variance, 0.01);
   n.param("slip_min", slip_min, -0.05);
@@ -159,66 +170,24 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
       begin = ros::Time::now();
       double omg = vel.angular.z;
       double vx = vel.linear.x;
-
-      // add gaussian noise 
-      std::normal_distribution<> d(noise_mean, noise_variance);
-      if (omg != 0) {
-        double noise_omg = d(get_random());
-        omg = omg + noise_omg;
-        // ROS_INFO_STREAM("omg with noise: " << omg << " from: " << noise_omg );
-      }
-      if (vx != 0) {
-        double noise_vx = d(get_random());
-        vx = vx + noise_vx;
-        // ROS_INFO_STREAM("vx with noise: " << vx << " from: " << noise_vx);
-      }
-
-      omg = omg*period_secs;
-      vx = vx*period_secs;
-
-
-      rigid2d::Twist2D t {omg, vx, 0};
-      rigid2d::DiffDriveVel wheel_vel = fake.vel_from_twist(t);
-
-      fake.update(wheel_vel.vL, wheel_vel.vR);
-
-      std::uniform_real_distribution<double> d_slip(slip_min, slip_max);
-      double vL_slip = wheel_vel.vL;
-      double vR_slip = wheel_vel.vR;
-      // ROS_INFO_STREAM("slip noise: " << noise_slip);
-      if (vL_slip != 0) {
-        vL_slip *= d_slip(get_random()) + 1;
-      }      
-      if (vR_slip != 0) {
-        vR_slip *= d_slip(get_random()) + 1;
-      }
-      fake_slip.update(vL_slip, vR_slip);
-
-      current_rad_left += vL_slip;
-      current_rad_right += vR_slip;
-
+      update_turtle(period_secs, omg, vx, fake, false);
+      update_turtle(period_secs, omg, vx, fake_slip, true);
+      
       if (omg != 0 || vx != 0) {
-        check_collision();
+        check_collision(period_secs);
       }
-
-      // ROS_INFO_STREAM("Add slipping " << wheel_vel.vL << " " << wheel_vel.vR << " to " << vL_slip << " " << vR_slip );
-
-      // rigid2d::Transform2D config = fake.config();
-      // ROS_INFO_STREAM("updated fake: " << config.theta() << " " << config.x() << " " << config.y());
-
-      // rigid2d::Transform2D config_slip = fake_slip.config();
-      // ROS_INFO_STREAM("updated fake_slip: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
    }
 }
 
 /// \brief Helper function for publishing joint states
 void Handler::pub_joint_state() {
   sensor_msgs::JointState js;
-  std::vector<std::string> name = {left_wheel_joint, right_wheel_joint};
-  std::vector<double> pos = {current_rad_left, current_rad_right};
+  std::vector<std::string> name = {left_wheel_joint, right_wheel_joint, left_wheel_joint_slip, right_wheel_joint_slip};
+  std::vector<double> pos = {current_rad_left, current_rad_right, current_rad_left_slip, current_rad_right_slip};
   js.name = name;
   js.position = pos;
   joint_state_pub.publish(js);
+
 }
 
 /// \brief Helper function for publishing obstacle markers
@@ -259,6 +228,7 @@ void Handler::tf_broadcast() {
   transformStamped.header.frame_id = "world";
   transformStamped.child_frame_id = "turtle";
   rigid2d::Transform2D config = fake_slip.config();
+  // ROS_INFO_STREAM("turtle " << config.theta() << " " << config.x() << " " << config.y());
   transformStamped.transform.translation.x = config.x();
   transformStamped.transform.translation.y = config.y();
   transformStamped.transform.translation.z = 0.0;
@@ -308,6 +278,7 @@ void Handler::pub_path() {
 /// \brief Helper function for publishing fake sensor information
 void Handler::pub_fake_sensor() {
   visualization_msgs::MarkerArray marker_array;
+  std_msgs::Float64MultiArray float_array;
   for (unsigned i = 0; i < x_coords.size(); i++) {
     visualization_msgs::Marker marker;
     marker.header.frame_id = "odom";
@@ -317,23 +288,38 @@ void Handler::pub_fake_sensor() {
     marker.type = visualization_msgs::Marker::CYLINDER;
 
     rigid2d::Transform2D config = fake_slip.config();
-    double dist = sqrt(pow((config.x()-x_coords[i]), 2) + pow((config.y()-y_coords[i]), 2));
-    if (dist < obst_max_dist) {
-      marker.action = visualization_msgs::Marker::ADD;
-    }
-    else {
-      marker.action = visualization_msgs::Marker::DELETE;
-    }
 
-          // add gaussian noise 
+    // add gaussian noise 
     std::normal_distribution<> d(0, tube_var);
     double noise_x = d(get_random());
     double noise_y = d(get_random());
-
+    
     marker.pose.position.x = x_coords[i] + noise_x;
     marker.pose.position.y = y_coords[i] + noise_y;
     marker.pose.position.z = 0.5;
 
+    double x_dist = x_coords[i] + noise_x - config.x();
+    double y_dist = y_coords[i] + noise_y - config.y();
+    // ROS_INFO_STREAM("@ tube world (x,y) = " << x_dist << " " << y_dist);
+
+    double measure_dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+    double angle = atan2(y_dist, x_dist) - config.theta();
+    angle = rigid2d::normalize_angle(angle);
+
+    double dist = sqrt(pow((config.x()-x_coords[i]), 2) + pow((config.y()-y_coords[i]), 2));
+    if (dist < obst_max_dist) {
+      marker.action = visualization_msgs::Marker::ADD;
+      float_array.data.push_back(measure_dist);
+      float_array.data.push_back(angle);
+    }
+    else {
+      marker.action = visualization_msgs::Marker::DELETE;
+      float_array.data.push_back(-1);
+      float_array.data.push_back(-1);
+    }
+
+    // ROS_INFO_STREAM("@ tube world config = " << config.theta() << " " << config.x() << " " << config.y());
+    // ROS_INFO_STREAM("@" << i << "tube world z = " << measure_dist<< " " << angle);
 
     marker.pose.orientation.x = 0;
     marker.pose.orientation.y = 0;
@@ -349,14 +335,15 @@ void Handler::pub_fake_sensor() {
     marker_array.markers.push_back(marker);
   }
   fake_sensor_pub.publish( marker_array );
+  fake_measurenmt_pub.publish(float_array);
 }
 
 /// \brief Helper function for collision detection between robot and obstacles.
 /// After collision, this function is going to move robot along the tangent line between 
 /// the robot and obstacle to move the robot away. 
-void Handler::check_collision() {
+void Handler::check_collision(double period_secs) {
   rigid2d::Transform2D config_slip = fake_slip.config();
-  ROS_INFO_STREAM("turtle: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
+  // ROS_INFO_STREAM("turtle: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
   
   // simulate robot as a sphere 
   visualization_msgs::MarkerArray marker_array;
@@ -378,7 +365,7 @@ void Handler::check_collision() {
   marker.scale.x = robot_radius*2;
   marker.scale.y = robot_radius*2;
   marker.scale.z = robot_radius*2;
-  marker.color.a = 1.0; 
+  marker.color.a = 0.5; 
   marker.color.r = 0.0;
   marker.color.g = 0.0;
   marker.color.b = 1.0;
@@ -391,26 +378,75 @@ void Handler::check_collision() {
     if (dist <= robot_radius+obst_radius) {
       double dist_x = config.x()-x_coords[i];
       double dist_y = config.y()-y_coords[i];
-
+      double diff_ang = atan2(dist_y, dist_x) - config.theta();
+      
+      dist = robot_radius+obst_radius - dist;
+      dist /= period_secs;
       double angle = atan2(dist_y, dist_x);
-      double sign = -angle/abs(angle);
-      double tx = sign*dist*sin(angle);
-      double ty = sign*dist*cos(angle);
-      double tomg = dist*atan2(ty, tx);
-      ROS_INFO_STREAM(angle << " --> tangent: " << tx << " " << ty << " " << tomg);
+      double sign = angle/abs(angle);
+      double tx = -sign*dist*sin(angle)/period_secs;
+      // double ty = -sign*dist*cos(angle)/period_secs;
+      // double tomg = diff_ang*dist;
+      double tomg = sign*0.5;
+      // ROS_INFO_STREAM("dist " << dist << " angle " << angle << " --> tangent: " << tx << " " << ty << " " << tomg);
 
       geometry_msgs::Twist t;
       t.linear.x = tx;
       t.angular.z = tomg;
-      cmd_vel_pub.publish(t);
-    
+      update_turtle(period_secs, tomg, tx, fake_slip, true);
       break;
     }
   }
-  
-
-
 }
+
+void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::DiffDrive & turtle, bool add_noise) {
+  std::normal_distribution<> d(noise_mean, noise_variance);
+  if (omg != 0 && add_noise) {
+    double noise_omg = d(get_random());
+    omg = omg + noise_omg;
+  }
+  if (vx != 0 && add_noise) {
+    double noise_vx = d(get_random());
+    vx = vx + noise_vx;
+  }
+
+  omg = omg*period_secs;
+  vx = vx*period_secs;
+
+  rigid2d::Twist2D t {omg, vx, 0};
+  rigid2d::DiffDriveVel wheel_vel = turtle.vel_from_twist(t);
+
+  std::uniform_real_distribution<double> d_slip(slip_min, slip_max);
+  double vL_slip = wheel_vel.vL;
+  double vR_slip = wheel_vel.vR;
+  if (vL_slip != 0 && add_noise) {
+    vL_slip *= d_slip(get_random()) + 1;
+  }      
+  if (vR_slip != 0 && add_noise) {
+    vR_slip *= d_slip(get_random()) + 1;
+  }
+  turtle.update(vL_slip, vR_slip);
+
+  if (add_noise == false) {
+    current_rad_left += vL_slip;
+    current_rad_right += vR_slip;
+    ROS_INFO_STREAM(" ---- update js " << current_rad_left << "  " << current_rad_right);
+  }
+  else {
+    current_rad_left_slip += vL_slip;
+    current_rad_right_slip += vR_slip;
+    ROS_INFO_STREAM(" ---- update js slip " << current_rad_left << "  " << current_rad_right);
+  }
+
+  rigid2d::Transform2D config_slip = fake_slip.config();
+  ROS_INFO_STREAM(" --- fake slip " << config_slip.theta() << " "<< config_slip.x() << " " << config_slip.y());
+  rigid2d::Transform2D config = fake.config();
+  ROS_INFO_STREAM(" --- fake  " << config.theta() << " "<< config.x() << " " << config.y());
+  // ROS_INFO_STREAM("command cmd vel = " << omg << " " << vx);
+  // ROS_INFO_STREAM(period_secs <<" fake slip " << config_slip.x() << " fake " << config.x());
+  // ROS_INFO_STREAM(period_secs <<" fake slip " << config_slip.theta() << " fake " << config.theta());
+}
+
 
 
 

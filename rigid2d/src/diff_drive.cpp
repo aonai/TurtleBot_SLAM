@@ -17,6 +17,13 @@ namespace rigid2d {
         DiffDriveVel vel {vel_left, vel_right};
         return vel;
     } 
+
+    Twist2D DiffDrive::twist_from_vel(DiffDriveVel vel) {
+        double vx = (vel.vL + vel.vR) * wheel_radius /2;
+        double omg = (wheel_radius * vel.vR - vx)/wheel_base;
+        Twist2D t {omg, vx, 0};
+        return t;
+    } 
     
     void DiffDrive::update(double rad_left, double rad_right) {
         double omg = 0.5*(rad_right-rad_left)*wheel_radius/wheel_base;   // equation (4) of Kinematics.pdf 

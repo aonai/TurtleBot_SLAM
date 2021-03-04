@@ -52,6 +52,9 @@ namespace rigid2d
         /// \param x - theta of the new config
         /// \param y - theta of the new config
         void set_pose(double theta, double x, double y);
+
+        Twist2D twist_from_vel(DiffDriveVel vel);
+        
     };
 }
 
