@@ -1,4 +1,5 @@
 <launch>
+    <arg name="use_odom" default="true" doc="whether to use odometer or slam node"/>
 
     <param name="wheel_base" value="0.16" type="double"/>
     <param name="wheel_radius" value="0.033" type="double"/>
@@ -9,19 +10,19 @@
     <param name="left_wheel_joint_slip" value="wheel_left_link_slip" type="string"/>
     <param name="right_wheel_joint_slip" value="wheel_right_link_slip" type="string"/>
     <param name="noise_mean" value="0.0" type="double"/>
-    <param name="noise_variance" value="0.00" type="double"/>
+    <param name="noise_variance" value="0.01" type="double"/>
     <param name="slip_min" value="-0.01" type="double"/>
     <param name="slip_max" value="0.01" type="double"/>
-    <rosparam param="x_coords">[1.0, 2.0, 3.0]</rosparam>
-    <rosparam param="y_coords">[0.5, 2.0, 2.5]</rosparam>
+    <rosparam param="x_coords">[-1.0, -2.0, 3.0, 2.3, 2.3, -1.2, 0.9, -1.4]</rosparam>
+    <rosparam param="y_coords">[-0.5, -2.0, 2.5, -3.6, -1.3, 3.1, 4.3, 2.2]</rosparam>
     <rosparam param="covariance_matrix_0">[1.0, 1.0]</rosparam>
     <rosparam param="covariance_matrix_1">[1.0, 1.0]</rosparam>
     <param name="obst_radius" value="0.0762" type="double"/>
-    <param name="obst_max_dist" value="10.0" type="double"/>
-    <param name="tube_var" value="0.000001" type="double"/>
+    <param name="obst_max_dist" value="3.0" type="double"/>
+    <param name="tube_var" value="0.001" type="double"/>
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
-    <!-- <node name="odometer" pkg="rigid2d" type="odometer"/> -->
+    <node name="odometer" pkg="rigid2d" type="odometer" if="$(arg use_odom)"/>
     <node name="tube_world" pkg="nurtlesim" type="tube_world"/>
 
     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find nuturtle_description)/urdf/turtlebot3_burger.urdf.xacro" />

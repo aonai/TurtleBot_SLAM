@@ -67,6 +67,7 @@ class Handler {
     double rad_right_old = 0.0;
     double rad_left_slip_old = 0.0;
     double rad_right_slip_old = 0.0;
+    arma::vec seen;
     arma::vec init_map_state;
     rigid2d::DiffDrive odom;
     rigid2d::DiffDrive odom_slip;
@@ -122,6 +123,8 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
     states.set_noises(noise_variance, tube_var);
     if (init) {
       last_map_state = init_map_state;
+      seen = arma::vec (init_map_state.size()/2);
+      seen.fill(false);
       states.set_map_state(init_map_state);
 
       measure_d = arma::vec (x_coords.size());
@@ -289,7 +292,7 @@ void Handler::tf_broadcast() {
   geometry_msgs::TransformStamped transformStamped;
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = odom_frame_id;
-  transformStamped.child_frame_id = body_frame_id;
+  transformStamped.child_frame_id = "fake_turtle";
   rigid2d::Transform2D config = odom.config();
   transformStamped.transform.translation.x = config.x();
   transformStamped.transform.translation.y = config.y();
@@ -333,6 +336,20 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
+  // map to base_footprint
+  transformStamped.header.stamp = ros::Time::now();
+  transformStamped.header.frame_id = "map";
+  transformStamped.child_frame_id = body_frame_id;
+  transformStamped.transform.translation.x = robot_state(1);
+  transformStamped.transform.translation.y = robot_state(2);
+  transformStamped.transform.translation.z = 0.0;
+  q.setRPY(0, 0, robot_state(0));
+  transformStamped.transform.rotation.x = q.x();
+  transformStamped.transform.rotation.y = q.y();
+  transformStamped.transform.rotation.z = q.z();
+  transformStamped.transform.rotation.w = q.w();
+  br.sendTransform(transformStamped);
+
 
 }
 
@@ -363,7 +380,12 @@ void Handler::pub_slam_obst_marker() {
     marker.ns = "slam_obst";
     marker.id = i;
     marker.type = visualization_msgs::Marker::CYLINDER;
-    marker.action = visualization_msgs::Marker::ADD;
+    if (seen(i) == true) {
+      marker.action = visualization_msgs::Marker::ADD;
+    }
+    else {
+      marker.action = visualization_msgs::Marker::DELETE;
+    }
     marker.pose.position.x = map_state[2*i];
     marker.pose.position.y = map_state[2*i+1];
     marker.pose.position.z = 0.5;
@@ -392,21 +414,46 @@ void Handler::align_tf() {
   rigid2d::Transform2D config = odom_slip.config();
 
   world_map_tf = {0, 0, 0};
-  T_odom_map = config * T_map_robot.inv();
+  world_map_tf.fill(0);
+  // T_odom_map = config * T_map_robot.inv();
 
 
   ROS_INFO_STREAM("T_odom_map = " << T_odom_map);
   unsigned n = 0;
+  bool first_obst = true;
   for (unsigned i = 0; i < x_coords.size()-1; i++) {
     if (measure_d(i) > 0) {
       n += 1;
-      // direction of obstacles 
-      double mx = map_state(2*i) - map_state(2*(i+1));
-      double my = map_state(2*i+1) - map_state(2*(i+1)+1);
-      double map_ang = atan2(my, mx);
+      double mx, my, ox, oy;
+      unsigned j = i+1;
+      while (j < measure_d.size() && measure_d(j) < 0 ) {
+        j += 1;
+        ROS_INFO_STREAM("j = " << j);
+      }
 
-      double ox = x_coords[i] - x_coords[i+1];
-      double oy = y_coords[i] - y_coords[i+1];
+      if (j >= measure_d.size() && first_obst) {
+          ROS_INFO_STREAM("use one obst");
+          mx = map_state(2*i);
+          my = map_state(2*i+1);
+          ox = x_coords[i];
+          oy = y_coords[i];
+      } 
+      else if (j >= measure_d.size() && first_obst == false) {
+        ROS_INFO_STREAM("break");
+        n -= 1;
+        break;
+      }
+      else {
+        ROS_INFO_STREAM("use two obst");
+        mx = map_state(2*i) - map_state(2*j);
+        my = map_state(2*i+1) - map_state(2*j+1);
+        ox = x_coords[i] - x_coords[j];
+        oy = y_coords[i] - y_coords[j];
+      }
+      ROS_INFO_STREAM("check -- " << i << " and " << j << " " << first_obst << measure_d.t());
+
+      // direction of obstacles 
+      double map_ang = atan2(my, mx);
       double odom_ang = atan2(oy, ox);
 
       // get translation 
@@ -419,16 +466,22 @@ void Handler::align_tf() {
       rigid2d::Transform2D To {v_odom, odom_ang};
       rigid2d::Transform2D result =  To * Tm.inv();
 
+      ROS_INFO_STREAM(result);
       world_map_tf(0) += result.theta();
       world_map_tf(1) += result.x();
       world_map_tf(2) += result.y();
 
+      first_obst = false;
+      // break;
     }
   }
-  world_map_tf(0) /= n;
-  world_map_tf(1) /= n;
-  world_map_tf(2) /= n;
 
+  if (n > 0) {
+    world_map_tf(0) /= n;
+    world_map_tf(1) /= n;
+    world_map_tf(2) /= n;
+  }
+  
   ROS_INFO_STREAM(" === Final tf = " << world_map_tf.t());
 
     
@@ -441,9 +494,13 @@ void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & 
     md_tmp(i) = msg.data[2*i];
     ma_tmp(i) = msg.data[2*i+1];
     ma_tmp(i) = ma_tmp(i);
+    if (md_tmp(i) > 0 && seen(i) == false) {
+      seen(i) = true;
+    } 
   }
   measure_d = md_tmp;
   measure_angle = ma_tmp;
+  // ROS_INFO_STREAM("Check map " << seen.t() << " vs " << measure_d.t());
 }
 
 
