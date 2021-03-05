@@ -212,7 +212,7 @@ void Handler::pub_obst_marker() {
   visualization_msgs::MarkerArray marker_array;
   for (unsigned i = 0; i < x_coords.size(); i++) {
     visualization_msgs::Marker marker;
-    marker.header.frame_id = "odom";
+    marker.header.frame_id = "world";
     marker.header.stamp = ros::Time();
     marker.ns = "real";
     marker.id = i;
@@ -261,7 +261,7 @@ void Handler::tf_broadcast() {
   geometry_msgs::TransformStamped tmp;
   tmp.header.stamp = ros::Time::now();
   tmp.header.frame_id = "world";
-  tmp.child_frame_id = "odom";
+  tmp.child_frame_id = "map";
   tmp.transform.translation.x = 0.0;
   tmp.transform.translation.y = 0.0;
   tmp.transform.translation.z = 0.0;
@@ -276,7 +276,7 @@ void Handler::tf_broadcast() {
 void Handler::pub_path() {
   geometry_msgs::PoseStamped path_pose;
   path_pose.header.stamp = ros::Time::now();
-  path_pose.header.frame_id = "odom";
+  path_pose.header.frame_id = "world";
   rigid2d::Transform2D config = fake_slip.config();
   path_pose.pose.position.x = config.x();
   path_pose.pose.position.y = config.y();
@@ -303,7 +303,7 @@ void Handler::pub_fake_sensor() {
   std_msgs::Float64MultiArray float_array;
   for (unsigned i = 0; i < x_coords.size(); i++) {
     visualization_msgs::Marker marker;
-    marker.header.frame_id = "odom";
+    marker.header.frame_id = "world";
     marker.header.stamp = ros::Time();
     marker.ns = "fake";
     marker.id = i;
@@ -366,7 +366,7 @@ void Handler::check_collision(double period_secs) {
   // simulate robot as a sphere 
   visualization_msgs::MarkerArray marker_array;
   visualization_msgs::Marker marker;
-  marker.header.frame_id = "odom";
+  marker.header.frame_id = "world";
   marker.header.stamp = ros::Time();
   marker.ns = "fake_slip";
   marker.id = 0;
