@@ -20,6 +20,9 @@
     <param name="obst_radius" value="0.0762" type="double"/>
     <param name="obst_max_dist" value="3.0" type="double"/>
     <param name="tube_var" value="0.01" type="double"/>
+    <param name="use_odom" value="true" type="bool" if="$(arg use_odom)"/>
+    <param name="use_odom" value="false" type="bool" unless="$(arg use_odom)"/>
+    
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
     <node name="odometer" pkg="rigid2d" type="odometer" if="$(arg use_odom)"/>
@@ -28,7 +31,7 @@
     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find nuturtle_description)/urdf/turtlebot3_burger.urdf.xacro" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher"/>
-    <node pkg="rviz" name="rviz" type="rviz" args="-d $(find rigid2d)/config/rviz_view.rviz"/>    
+    <node pkg="rviz" name="rviz" type="rviz" args="-d $(find nurtlesim)/config/rviz_view.rviz"/>    
     
 </launch>
 

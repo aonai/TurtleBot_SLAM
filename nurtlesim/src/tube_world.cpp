@@ -83,6 +83,7 @@ class Handler {
     double obst_radius = 0.0762;
     double obst_max_dist = 3.0;
     double tube_var = 0.001;
+    bool use_odom = false;
     rigid2d::DiffDrive fake;             
     rigid2d::DiffDrive fake_slip;        
     // ROS members     
@@ -173,6 +174,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("obst_radius", obst_radius, 0.0762);
   n.param("obst_max_dist", obst_max_dist, 2.0);
   n.param("tube_var", tube_var, 0.01);
+  n.param("use_odom", use_odom, false);
 }
 
 /// \brief Callback function for cmd_vel subscriber
@@ -257,11 +259,17 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
+  
   // world -> odom
   geometry_msgs::TransformStamped tmp;
   tmp.header.stamp = ros::Time::now();
   tmp.header.frame_id = "world";
-  tmp.child_frame_id = "map";
+  if (use_odom) {
+    tmp.child_frame_id = "odom";
+  }
+  else {
+    tmp.child_frame_id = "map";
+  }
   tmp.transform.translation.x = 0.0;
   tmp.transform.translation.y = 0.0;
   tmp.transform.translation.z = 0.0;
