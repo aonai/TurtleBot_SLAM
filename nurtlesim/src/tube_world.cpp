@@ -1,18 +1,39 @@
 /**
  * \brief This node is going to generate a fake turtle that is controlled by /cmd_vel and 
- * publishes joint states.
+ * publishes joint states and fake sensor information containing relative distance and angle
+ * to obstacles. These information have Gaussian noise in commanded twist, uniform random noise in slipping,
+ * and Gaussian noise in fake sensor. 
  * 
  * PUBLISHERS:
- * + joint_states (sensor_msgs::JointState) ~ joint states of turtle
- *   
+ * + joint_states (sensor_msgs::JointState) ~ joint states of turtle with and without noise
+ * + obstacles (visualization_msgs::MarkerArray) ~ ground truth locations of obstacles and robot
+ * + real_path (nav_msgs::Path) ~ real pose of turtle with noise
+ * + fake_sensor (visualization_msgs::MarkerArray) ~ fake sensor information with noise 
+ * + fake_measurement (std_msgs::Float64MultiArray) ~ measured distance and angle from robot to observed obstacles 
+ * 
  * SUBSRIBERS:
  * + cmd_vel (geometry_msgs::Twist) ~ the velocity of turtle
  *  
+ * 
  * PARAMETERS:
- * + left_wheel_joint (string) ~ name of the left wheel joint
- * + right_wheel_joint (string) ~ name of the right wheel joint
- * + wheel_base (double) ~ base dimension of robot wheel
- * + wheel_radius (double) ~ radius dimension of robot wheel
+ * + wheel_base (string) ~ distance between wheels of robot  
+ * + wheel_radius (string) ~ radius of wheels  
+ * + left_wheel_joint (string) ~ name of robot left wheel joint  
+ * + right_wheel_joint (string) ~ name of robot right wheel joint  
+ * + left_wheel_joint_slip (string) ~ name of robot left wheel joint with noises  
+ * + right_wheel_joint_slip (string) ~ name of robot right wheel joint with noises  
+ * + noise_mean (double) ~ mean of Gaussian noise for commanded twist   
+ * + noise_variance (double) ~ variance of Gaussian noise for commanded twist  
+ * + slip_min (double) ~ minimum uniform radom noise ratio for slipping  
+ * + slip_max (double) ~ maximum uniform radom noise ratio for slipping   
+ * + x_coords (double list) ~ x locations of obstacles in world  
+ * + y_coords (double list) ~ y locations of obstacles in world  
+ * + covariance_matrix_0 (double list) ~ first row of covariance matrix of obstacle lcoations   
+ * + covariance_matrix_1 (double list)~ second row of covariance matrix of obstacle lcoations  
+ * + obst_radius (double) ~ radius of tube obstacle   
+ * + obst_max_dist (double) ~ radius of observation area for robot; obstacles within this range will be used to publish sensor information   
+ * + tube_var (double) ~ variance of Gaussian noise for obstacles   
+ * 
  * 
 **/
 
@@ -54,14 +75,14 @@ class Handler {
     double current_rad_right_slip = 0;   
     double noise_mean = 0.0;
     double noise_variance = 0.01;
-    double slip_min = -0.05;
-    double slip_max = 0.05;
+    double slip_min = -0.01;
+    double slip_max = 0.01;
     std::vector<double> x_coords;
     std::vector<double> y_coords;
     std::vector<std::vector<double>> covariance_matrix = {{1.0, 1.0}, {1.0, 1.0}};;
     double obst_radius = 0.0762;
-    double obst_max_dist = 2.0;
-    double tube_var = 0.1;
+    double obst_max_dist = 3.0;
+    double tube_var = 0.001;
     rigid2d::DiffDrive fake;             
     rigid2d::DiffDrive fake_slip;        
     // ROS members     
@@ -98,7 +119,6 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   path_msg.header.frame_id="world"; 
   fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
   fake_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "fake_measurement", 10 );
-
   
   while (ros::ok()) {
     find_param(n);
@@ -121,16 +141,12 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
 /// \return A random generator 
 std::mt19937 & Handler::get_random()
  {
-     // static variables inside a function are created once and persist for the remainder of the program
      static std::random_device rd{}; 
      static std::mt19937 mt{rd()};
-     // we return a reference to the pseudo-random number genrator object. This is always the
-     // same object every time get_random is called
      return mt;
  }
 
-/// \brief Find parameters wheel_base, and wheel_radius, left_wheel_joint, and right_wheel_joint
-/// from ROS parameter server, otherwise set to default value
+/// \brief Find parameters 
 /// \param n - tube_world NodeHandle
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_left = "wheel_left_link";
@@ -160,8 +176,10 @@ void Handler::find_param(ros::NodeHandle & n) {
 }
 
 /// \brief Callback function for cmd_vel subscriber
-/// Compute wheel velocities from given twist (cmd_vel), then update turtle config
-/// and wheel angles. 
+/// Compute wheel velocities from given twist (cmd_vel), then update turtle (fake) config
+/// and wheel angles and update another turtle (fake_slip) config and wheel angles with noise. 
+/// Check whether turtle is colliding with an obstacles. If yes, turtle should move along a tangent
+/// line between itself (simulated as a sphere) and the obstacles. 
 /// \param vel - velocity of turtle
 void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
   ros::Duration period = ros::Time::now() - begin;
@@ -179,7 +197,7 @@ void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
    }
 }
 
-/// \brief Helper function for publishing joint states
+/// \brief Helper function for publishing joint states of turtle (fake) and turtle with noise (fake_slip)
 void Handler::pub_joint_state() {
   sensor_msgs::JointState js;
   std::vector<std::string> name = {left_wheel_joint, right_wheel_joint, left_wheel_joint_slip, right_wheel_joint_slip};
@@ -187,10 +205,9 @@ void Handler::pub_joint_state() {
   js.name = name;
   js.position = pos;
   joint_state_pub.publish(js);
-
 }
 
-/// \brief Helper function for publishing obstacle markers
+/// \brief Helper function for publishing obstacle markers at ground truth locations
 void Handler::pub_obst_marker() {
   visualization_msgs::MarkerArray marker_array;
   for (unsigned i = 0; i < x_coords.size(); i++) {
@@ -220,7 +237,8 @@ void Handler::pub_obst_marker() {
   obst_pub.publish( marker_array );
 }
 
-/// \brief Broadcast the transform between odom and the turtle
+/// \brief Broadcast the transform from world to turtle with noise (turtle) and 
+/// from world to odom. 
 void Handler::tf_broadcast() {
   // world -> turtle
   geometry_msgs::TransformStamped transformStamped;
@@ -228,7 +246,6 @@ void Handler::tf_broadcast() {
   transformStamped.header.frame_id = "world";
   transformStamped.child_frame_id = "turtle";
   rigid2d::Transform2D config = fake_slip.config();
-  // ROS_INFO_STREAM("turtle " << config.theta() << " " << config.x() << " " << config.y());
   transformStamped.transform.translation.x = config.x();
   transformStamped.transform.translation.y = config.y();
   transformStamped.transform.translation.z = 0.0;
@@ -240,7 +257,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // tmp world -> odom
+  // world -> odom
   geometry_msgs::TransformStamped tmp;
   tmp.header.stamp = ros::Time::now();
   tmp.header.frame_id = "world";
@@ -255,7 +272,7 @@ void Handler::tf_broadcast() {
   br.sendTransform(tmp);
 }
 
-/// \brief publish real_path information from fake_slip turtle 
+/// \brief Helper function for publishing real_path information from fake_slip turtle 
 void Handler::pub_path() {
   geometry_msgs::PoseStamped path_pose;
   path_pose.header.stamp = ros::Time::now();
@@ -275,7 +292,12 @@ void Handler::pub_path() {
   path_pub.publish(path_msg);
 }
 
-/// \brief Helper function for publishing fake sensor information
+/// \brief Helper function for publishing fake_sensor and fake_measurement information
+/// Red tube marker are only shown at locations of obstacles that are within the 
+/// observation range (`obst_max_dist`). 
+/// fake_measurement information is an array of float in form {d1, theat_1, d2, theta_2, ...}
+/// where d is the distance theta is the realtive angle to obstacles. If obstacles are out of
+/// range, set distance to -1 to let Kalman filter pass calculation at this landmark. 
 void Handler::pub_fake_sensor() {
   visualization_msgs::MarkerArray marker_array;
   std_msgs::Float64MultiArray float_array;
@@ -300,13 +322,14 @@ void Handler::pub_fake_sensor() {
 
     double x_dist = x_coords[i] + noise_x - config.x();
     double y_dist = y_coords[i] + noise_y - config.y();
-    // ROS_INFO_STREAM("@ tube world (x,y) = " << x_dist << " " << y_dist);
 
+    // fake_measurement info
     double measure_dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
     double angle = atan2(y_dist, x_dist) - config.theta();
     angle = rigid2d::normalize_angle(angle);
-
     double dist = sqrt(pow((config.x()-x_coords[i]), 2) + pow((config.y()-y_coords[i]), 2));
+
+    // check if obstacles can be seen
     if (dist < obst_max_dist) {
       marker.action = visualization_msgs::Marker::ADD;
       float_array.data.push_back(measure_dist);
@@ -317,9 +340,6 @@ void Handler::pub_fake_sensor() {
       float_array.data.push_back(-1);
       float_array.data.push_back(-1);
     }
-
-    // ROS_INFO_STREAM("@ tube world config = " << config.theta() << " " << config.x() << " " << config.y());
-    // ROS_INFO_STREAM("@" << i << "tube world z = " << measure_dist<< " " << angle);
 
     marker.pose.orientation.x = 0;
     marker.pose.orientation.y = 0;
@@ -342,8 +362,6 @@ void Handler::pub_fake_sensor() {
 /// After collision, this function is going to move robot along the tangent line between 
 /// the robot and obstacle to move the robot away. 
 void Handler::check_collision(double period_secs) {
-  rigid2d::Transform2D config_slip = fake_slip.config();
-  // ROS_INFO_STREAM("turtle: " << config_slip.theta() << " " << config_slip.x() << " " << config_slip.y());
   
   // simulate robot as a sphere 
   visualization_msgs::MarkerArray marker_array;
@@ -385,10 +403,7 @@ void Handler::check_collision(double period_secs) {
       double angle = atan2(dist_y, dist_x);
       double sign = angle/abs(angle);
       double tx = -sign*dist*sin(angle)/period_secs;
-      // double ty = -sign*dist*cos(angle)/period_secs;
-      // double tomg = diff_ang*dist;
       double tomg = sign*0.5;
-      // ROS_INFO_STREAM("dist " << dist << " angle " << angle << " --> tangent: " << tx << " " << ty << " " << tomg);
 
       geometry_msgs::Twist t;
       t.linear.x = tx;
@@ -399,7 +414,15 @@ void Handler::check_collision(double period_secs) {
   }
 }
 
+
+/// \brief Helper function for moving robot joint states based on commanded twist
+/// \param period_secs - period of time between current and last command twist 
+/// \param omg - angular velocity of robot
+/// \param vx - linear velocity of robot
+/// \param turtle - pointer to turlte wish to move
+/// \param add_nosie - whether to add noise to commanded twist and joint states  
 void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::DiffDrive & turtle, bool add_noise) {
+  // add Gaussian noise 
   std::normal_distribution<> d(noise_mean, noise_variance);
   if (omg != 0 && add_noise) {
     double noise_omg = d(get_random());
@@ -416,6 +439,7 @@ void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::
   rigid2d::Twist2D t {omg, vx, 0};
   rigid2d::DiffDriveVel wheel_vel = turtle.vel_from_twist(t);
 
+  // add uniform random noise
   std::uniform_real_distribution<double> d_slip(slip_min, slip_max);
   double vL_slip = wheel_vel.vL;
   double vR_slip = wheel_vel.vR;
@@ -430,21 +454,11 @@ void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::
   if (add_noise == false) {
     current_rad_left += vL_slip;
     current_rad_right += vR_slip;
-    ROS_INFO_STREAM(" ---- update js " << current_rad_left << "  " << current_rad_right);
   }
   else {
     current_rad_left_slip += vL_slip;
     current_rad_right_slip += vR_slip;
-    ROS_INFO_STREAM(" ---- update js slip " << current_rad_left << "  " << current_rad_right);
   }
-
-  rigid2d::Transform2D config_slip = fake_slip.config();
-  ROS_INFO_STREAM(" --- fake slip " << config_slip.theta() << " "<< config_slip.x() << " " << config_slip.y());
-  rigid2d::Transform2D config = fake.config();
-  ROS_INFO_STREAM(" --- fake  " << config.theta() << " "<< config.x() << " " << config.y());
-  // ROS_INFO_STREAM("command cmd vel = " << omg << " " << vx);
-  // ROS_INFO_STREAM(period_secs <<" fake slip " << config_slip.x() << " fake " << config.x());
-  // ROS_INFO_STREAM(period_secs <<" fake slip " << config_slip.theta() << " fake " << config.theta());
 }
 
 

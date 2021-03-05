@@ -1,22 +1,44 @@
 /**
- * \brief This node is going to generate odometry message for a robot.
+ * \brief This node is going to calculate robot configuration and obstacle locations by inputting
+ * commanded twist and sensor information into extended Kalman Filter SLAM algorithm. 
+ * 
  * 
  * PUBLISHERS:
  * + odom (nav_msgs::Odometry) ~ odometry of robot
+ * + odom_path (nav_msgs::Path) ~ path of odometry turtle 
+ * + slam_path (nav_msgs::Path) ~ path of turtle config calculated from Kalman Filter Slam
+ * + slam_obst (<visualization_msgs::MarkerArray) ~ obstacle locations calculated from Kalman Filter Slam
  * 
  * SUBSRIBERS:
  * + joint_states (sensor_msgs::JointState) ~ joint states of robot 
+ * + fake_measurement (std_msgs::Float64MultiArray) ~ fake sensor information containing relative distance and angle to obstacles 
  * 
  * SERVICES:
  * + set_pose (rigid2d::SetPose) ~ reset odometry frame of robot
  * 
  * PARAMETERS:
+ * + wheel_base (string) ~ distance between wheels of robot  
+ * + wheel_radius (string) ~ radius of wheels  
  * + odom_frame_id (string) ~ name of the odometry tf frame
  * + body_frame_id (string) ~ name of the body tf frame
- * + left_wheel_joint (string) ~ name of the left wheel joint
- * + right_wheel_joint (string) ~ name of the right wheel joint
- * + wheel_base (double) ~ base dimension of robot wheel
- * + wheel_radius (double) ~ radius dimension of robot wheel
+ * + left_wheel_joint (string) ~ name of robot left wheel joint  
+ * + right_wheel_joint (string) ~ name of robot right wheel joint  
+ * + left_wheel_joint_slip (string) ~ name of robot left wheel joint with noises  
+ * + right_wheel_joint_slip (string) ~ name of robot right wheel joint with noises  
+ * + noise_mean (double) ~ mean of Gaussian noise for commanded twist   
+ * + noise_variance (double) ~ variance of Gaussian noise for commanded twist  
+ * + slip_min (double) ~ minimum uniform radom noise ratio for slipping  
+ * + slip_max (double) ~ maximum uniform radom noise ratio for slipping   
+ * + x_coords (double list) ~ x locations of obstacles in world  
+ * + y_coords (double list) ~ y locations of obstacles in world  
+ * + covariance_matrix_0 (double list) ~ first row of covariance matrix of obstacle lcoations   
+ * + covariance_matrix_1 (double list)~ second row of covariance matrix of obstacle lcoations  
+ * + obst_radius (double) ~ radius of tube obstacle   
+ * + obst_max_dist (double) ~ radius of observation area for robot; obstacles within this range will be used to publish sensor information   
+ * + tube_var (double) ~ variance of Gaussian noise for obstacles   
+ * 
+ * 
+ * 
 **/
 
 
@@ -38,7 +60,7 @@
 #include "rigid2d/diff_drive.hpp"
 #include "nuslam/kalman.hpp"
 
-/// \brief Helper class for node odometer
+/// \brief Helper class for node slam
 class Handler {
   public:
       explicit Handler(ros::NodeHandle & n);
@@ -77,7 +99,6 @@ class Handler {
     arma::vec measure_angle;
     arma::vec last_map_state;
     rigid2d::Transform2D T_odom_map {0};
-    rigid2d::Transform2D T_tmp {0};
     // ROS members
     ros::Subscriber joint_states_sub;
     ros::Publisher odom_pub;
@@ -102,9 +123,9 @@ class Handler {
 };
 
 /// \brief Init Handler class
-/// \param n - odometer NodeHandle
+/// \param n - slam NodeHandle
 Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
-        odom_slip(wheel_base/2, wheel_radius), states(init_map_state, noise_variance, tube_var) {
+              odom_slip(wheel_base/2, wheel_radius), states(init_map_state, noise_variance, tube_var) {
   joint_states_sub = n.subscribe("joint_states", 10, &Handler::joint_states_sub_callback, this);
   odom_pub = n.advertise<nav_msgs::Odometry>("odom", 10);
   set_pose_service = n.advertiseService("set_pose", &Handler::set_pose_service_callback, this);
@@ -119,8 +140,11 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
 
   while (ros::ok()) {
     find_param(n);
-    // ROS_INFO_STREAM("noises " << noise_variance << " " << tube_var);
+
+    // set noise variance for Kalman slam
     states.set_noises(noise_variance, tube_var);
+
+    // initialize Kalman slam
     if (init) {
       last_map_state = init_map_state;
       seen = arma::vec (init_map_state.size()/2);
@@ -147,7 +171,8 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
     
 }
 
-/// \brief publish odometry information to topic odom
+/// \brief Publish odometry information to topic odom and path of odometry.
+/// This function also publishes turtle path calcualted from Kalman slam
 void Handler::pub_odom() {
   // publish odometry
   nav_msgs::Odometry odom_msg;
@@ -176,14 +201,12 @@ void Handler::pub_odom() {
   path_pose.pose.orientation.y = q.y();
   path_pose.pose.orientation.z = q.z();
   path_pose.pose.orientation.w = q.w();
-
   odom_path_msg.poses.push_back(path_pose);
   odom_path_pub.publish(odom_path_msg);
 
 
-  // pub path for turtle slam
+  // publish slam turtle path
   path_pose.header.stamp = ros::Time::now();
-  // path_pose.header.frame_id = "slam_turtle";
   arma::vec robot_state = states.get_robot_state();
   rigid2d::Vector2D v {world_map_tf(1), world_map_tf(2)};
   rigid2d::Transform2D trans {v, world_map_tf(0)};
@@ -198,14 +221,12 @@ void Handler::pub_odom() {
   path_pose.pose.orientation.y = q.y();
   path_pose.pose.orientation.z = q.z();
   path_pose.pose.orientation.w = q.w();
-
   slam_path_msg.poses.push_back(path_pose);
   slam_path_pub.publish(slam_path_msg);
 }
 
-/// \brief Find parameters odom_frame_id, body_frame_id, left_wheel_joint, right_wheel_joint, 
-/// wheel_base, and wheel_radius from ROS parameter server, otherwise set to default value
-/// \param n - odometer NodeHandle
+/// \brief Find parameters
+/// \param n - slam NodeHandle
 void Handler::find_param(ros::NodeHandle & n) {
   std::string default_odom = "odom";
   std::string default_base = "base_footprint";
@@ -232,6 +253,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("obst_max_dist", obst_max_dist, 2.0);
   n.param("tube_var", tube_var, 0.01);
 
+
   init_map_state = arma::vec (x_coords.size()*2);
   for (unsigned i = 0; i < x_coords.size(); i++) {
     init_map_state(2*i) = x_coords[i];
@@ -242,6 +264,9 @@ void Handler::find_param(ros::NodeHandle & n) {
 
 /// \brief Callback function for joint_states subscriber.
 /// Updates robot config given updated wheel angles.
+/// Also updates robot config with noise and collision for checking correctness of Kalman slam.
+/// After calcualting twist from joint states, input twist and fake measurement into
+/// Kalman Filter to calcualte slam turlte pose and slam obstacle locations.
 /// \param msg - message from subscriber
 void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
   double rad_left = msg.position[0] - rad_left_thresh;
@@ -250,6 +275,7 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
   double rad_right_slip = msg.position[3] - rad_right_thresh;
 
   if (rad_left != 0 && rad_right != 0) {
+    // odom turtle 
     double rad_left_diff = rad_left - rad_left_old;
     rad_left_diff = rigid2d::normalize_angle(rad_left_diff);
     double rad_right_diff = rad_right - rad_right_old;
@@ -258,6 +284,7 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     rad_left_old = rad_left;
     rad_right_old = rad_right;
 
+    // turtle with noise
     double rad_left_diff_slip = rad_left_slip - rad_left_slip_old;
     rad_left_diff_slip = rigid2d::normalize_angle(rad_left_diff_slip);
     double rad_right_diff_slip = rad_right_slip - rad_right_slip_old;
@@ -266,29 +293,22 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     rad_left_slip_old = rad_left_slip;
     rad_right_slip_old = rad_right_slip;
 
-    // ROS_INFO_STREAM("Incoming " << measure_d.t() << " " << measure_angle.t());
+    // calcualte slam turtle 
     rigid2d::DiffDriveVel vel {rad_left_diff, rad_right_diff};
     rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
-    // ROS_INFO_STREAM("Calculated twist " << t);
     last_map_state = states.get_map_state();
-    // ROS_INFO_STREAM("store map " << last_map_state);
     states.ekf_update(t, measure_d, measure_angle);
-    
-    // arma::vec d {sqrt(1+0.5*0.5), sqrt(8), sqrt(18)};
-    // arma::vec ang {atan2(0.5,1), atan(1), atan(1)};
-    // states.ekf_update(t, d, ang);
-
-    // rigid2d::Transform2D config = odom.config();
-    // rigid2d::Transform2D config_slip = odom_slip.config();
-    // ROS_INFO_STREAM("updated odom: " << config.theta() << " "<<config.x()<<" " << config.y() << \
-    //                 " -VS- updated slip " <<  config_slip.theta() << " "<<config_slip.x()<<" " << config_slip.y());
   }
 }
 
 
-/// \brief Broadcast the transform between odom_frame_id and the body_frame_id
+/// \brief Broadcast the transform between frames:
+///     odom -> odometry turtle 
+///     world -> map
+///     map -> slam turtle
+///     map -> base_footprint
 void Handler::tf_broadcast() {
-  // tf from odom to base_foot_print
+  // odom -> odometry turtle 
   geometry_msgs::TransformStamped transformStamped;
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = odom_frame_id;
@@ -305,7 +325,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // tf from world to map
+  // world -> map
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "world";
   transformStamped.child_frame_id = "map";
@@ -319,13 +339,11 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-
-  // tf from map to slam
+  // map -> slam turtle
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "map";
   transformStamped.child_frame_id = "slam_turtle";
   arma::vec robot_state = states.get_robot_state();
-  // ROS_INFO_STREAM("map state = " << robot_state);
   transformStamped.transform.translation.x = robot_state(1);
   transformStamped.transform.translation.y = robot_state(2);
   transformStamped.transform.translation.z = 0.0;
@@ -336,7 +354,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // map to base_footprint
+  // map -> base_footprint
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "map";
   transformStamped.child_frame_id = body_frame_id;
@@ -349,7 +367,6 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.z = q.z();
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
-
 
 }
 
@@ -365,14 +382,11 @@ bool Handler::set_pose_service_callback(rigid2d::SetPose::Request  & req, rigid2
   return true;
 }
 
-
-
-
-/// \brief Helper function for publishing obstacle markers
+/// \brief Helper function for publishing obstacle marker locations calculated 
+/// from Kalman slam. Only obstacles that are seen before are published. 
 void Handler::pub_slam_obst_marker() {
   visualization_msgs::MarkerArray marker_array;
   arma::vec map_state = states.get_map_state();
-  // ROS_INFO_STREAM("map states " << map_state);
   for (unsigned i = 0; i < map_state.size()/2; i++) {
     visualization_msgs::Marker marker;
     marker.header.frame_id = "map";
@@ -405,6 +419,9 @@ void Handler::pub_slam_obst_marker() {
   slam_obst_pub.publish( marker_array );
 }
 
+/// \brief Compute the transformation between map and odom
+/// The T_odom_map should be the same as T_first_second_obst
+/// If only one obstacle is seen, T_odom_map is calculated from T_first_obst_map
 void Handler::align_tf() {
   arma::vec map_state = states.get_map_state();
   arma::vec robot_state = states.get_robot_state();
@@ -415,42 +432,41 @@ void Handler::align_tf() {
 
   world_map_tf = {0, 0, 0};
   world_map_tf.fill(0);
+
   // T_odom_map = config * T_map_robot.inv();
+  // ROS_INFO_STREAM("T_odom_map = " << T_odom_map);
 
-
-  ROS_INFO_STREAM("T_odom_map = " << T_odom_map);
   unsigned n = 0;
   bool first_obst = true;
   for (unsigned i = 0; i < x_coords.size()-1; i++) {
     if (measure_d(i) > 0) {
       n += 1;
       double mx, my, ox, oy;
+
+      // find next available obstacle
       unsigned j = i+1;
       while (j < measure_d.size() && measure_d(j) < 0 ) {
         j += 1;
-        ROS_INFO_STREAM("j = " << j);
       }
 
-      if (j >= measure_d.size() && first_obst) {
-          ROS_INFO_STREAM("use one obst");
+      
+      if (j >= measure_d.size() && first_obst) {   // only one obstacle is seen
           mx = map_state(2*i);
           my = map_state(2*i+1);
           ox = x_coords[i];
           oy = y_coords[i];
       } 
-      else if (j >= measure_d.size() && first_obst == false) {
-        ROS_INFO_STREAM("break");
+      else if (j >= measure_d.size() && first_obst == false) {  // no available obstacle found
         n -= 1;
         break;
       }
-      else {
-        ROS_INFO_STREAM("use two obst");
+      else { // use relative sensor info between two obstacles 
         mx = map_state(2*i) - map_state(2*j);
         my = map_state(2*i+1) - map_state(2*j+1);
         ox = x_coords[i] - x_coords[j];
         oy = y_coords[i] - y_coords[j];
       }
-      ROS_INFO_STREAM("check -- " << i << " and " << j << " " << first_obst << measure_d.t());
+      // ROS_INFO_STREAM("check -- " << i << " and " << j << " " << first_obst << measure_d.t());
 
       // direction of obstacles 
       double map_ang = atan2(my, mx);
@@ -466,27 +482,27 @@ void Handler::align_tf() {
       rigid2d::Transform2D To {v_odom, odom_ang};
       rigid2d::Transform2D result =  To * Tm.inv();
 
-      ROS_INFO_STREAM(result);
       world_map_tf(0) += result.theta();
       world_map_tf(1) += result.x();
       world_map_tf(2) += result.y();
 
       first_obst = false;
-      // break;
     }
   }
 
+  // average transform
   if (n > 0) {
     world_map_tf(0) /= n;
     world_map_tf(1) /= n;
     world_map_tf(2) /= n;
   }
-  
-  ROS_INFO_STREAM(" === Final tf = " << world_map_tf.t());
-
-    
+  // ROS_INFO_STREAM(" === Final tf = " << world_map_tf.t());
 }
 
+/// \brief Callback function for fake_measurement subscriber
+/// \param msg - float array in form {d1, theat_1, d2, theta_2, ...}
+///               where d is the distance theta is the realtive angle to obstacles. 
+/// -1 indicates obstacles that are not seen.  
 void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & msg) {
   arma::vec md_tmp (msg.data.size()/2);
   arma::vec ma_tmp (msg.data.size()/2);
@@ -508,7 +524,7 @@ void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & 
 
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "odometer");
+  ros::init(argc, argv, "slam");
   ros::NodeHandle n;
   Handler handler(n);
   return 0;
