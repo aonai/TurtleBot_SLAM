@@ -19,7 +19,7 @@
     <rosparam param="covariance_matrix_1">[1.0, 1.0]</rosparam>
     <param name="obst_radius" value="0.0762" type="double"/>
     <param name="obst_max_dist" value="3.0" type="double"/>
-    <param name="tube_var" value="0.001" type="double"/>
+    <param name="tube_var" value="0.01" type="double"/>
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
     <node name="odometer" pkg="rigid2d" type="odometer" if="$(arg use_odom)"/>

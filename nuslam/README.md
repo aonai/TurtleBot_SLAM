@@ -14,7 +14,7 @@ Obstacles at known locations are shown as green tubes. Obstacles with added Gaus
 
 
 # Testing  
-Screenshots of rviz after robot driving in the simulated world is shown below. The twist noise is N(0, 0.01). The slip noise ratio is -0.01 to 0.01. The obstacle noise if N(0, 0.001). Observation distance of robot is 3.0.   
+Screenshots of rviz after robot driving in the simulated world is shown below. The twist noise is N(0, 0.01). The slip noise ratio is -0.01 to 0.01. The obstacle noise if N(0, 0.01). Observation distance of robot is 3.0.   
 ![slam_result](images/slam_result.png)  
 ![slam_result_closer_look](images/slam_result_closer_look.png)  
 
