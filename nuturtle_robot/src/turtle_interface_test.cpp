@@ -126,8 +126,8 @@ TEST_CASE( "Test velocity commands", "[cmd_vel, wheel_cmd]" ) {
       }
     }
 
-    REQUIRE(tester.left_vel == -104); 
-    REQUIRE(tester.right_vel == 104);
+    REQUIRE(tester.left_vel == -200); 
+    REQUIRE(tester.right_vel == 200);
   }
 
 }

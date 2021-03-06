@@ -162,7 +162,7 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
         rigid2d::Transform2D T(rigid2d::Vector2D {1.1, 2.2}, 3.3);
         ss << T;
         std::string str =  ss.str();
-        std::string cmp ("dtheta (degrees): 189.076 dx: 1.1 dy: 2.2");
+        std::string cmp ("dtheta (degrees): 0.580513 dx: 1.1 dy: 2.2");
         REQUIRE( str == cmp );
     }
 
@@ -263,11 +263,11 @@ TEST_CASE( "Test Transform2D class", "[Transform2D]" ) {
     SECTION ( "convert angle" ) {
         double rad = 3.34;
         double result = rigid2d::normalize_angle(rad);
-        REQUIRE(result == Approx(0.2).epsilon(0.01));
+        REQUIRE(result == Approx(-2.94).epsilon(0.01));
 
         rad = -3.34;
         result = rigid2d::normalize_angle(rad);
-        REQUIRE(result == Approx(-0.2).epsilon(0.01));
+        REQUIRE(result == Approx(2.94).epsilon(0.01));
     }
 }
 
