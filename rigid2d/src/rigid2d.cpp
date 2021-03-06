@@ -289,11 +289,15 @@ namespace rigid2d {
     }
 
     double normalize_angle(double rad) {
-
+        rad = fmod(rad, 2*PI);
         if (rad < -rigid2d::PI) {
-            return 2*rigid2d::PI + rad;
+            rad = 2*rigid2d::PI + rad;
         }
-        return fmod(rad, 2*PI);
+        if (rad > rigid2d::PI) {
+            rad = -2*rigid2d::PI + rad;
+        }
+
+        return rad;
     }
 
 

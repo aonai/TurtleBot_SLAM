@@ -75,6 +75,7 @@ namespace kalman {
 
         m(0) = sqrt(pow(dist_x,2) + pow(dist_y,2));
         m(1) = atan2(dist_y, dist_x) - robot_state(angle_idx);
+        m(1) = rigid2d::normalize_angle(m(1));
         return m;
     }
 
@@ -128,31 +129,25 @@ namespace kalman {
     }
 
     void StateVec::ekf_update(rigid2d::Twist2D t, arma::vec actual_d, arma::vec actual_angle) {
-        // std::cout << "--------- start ----------- " << std::endl;
-        arma::vec old_map_state = map_state;
 
-        // std::cout << "--------- update ----------- " << std::endl;
-        arma::mat old_robot_state = robot_state;
-        arma::mat A = estimate(t);
-        // std::cout << "update robot = " << robot_state << std::endl;
-
-        // check if new landmark is mark
+        // check if there is new landmark, then re-initialize states and covariance 
         if (actual_d.size() > map_state.size()/2) {
-            map_state = arma::vec (actual_d.size()*2);
+            arma::vec actual_map_state = map_state; 
+            for (unsigned j = 0; j < actual_d.size(); j++) { // Equation (23) and (24)
+                if (actual_d[j] > 0) {
+                    actual_map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(actual_angle(j) + robot_state(angle_idx));
+                    actual_map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(actual_angle(j) + robot_state(angle_idx));
+                }
+            }
+            map_state = actual_map_state;
             reset_cov();
         }
 
-        // Equation (23) and (24) 
-        for (unsigned j = 0; j < actual_d.size(); j++) {
-            if (actual_d[j] > 0) {
-                map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(actual_angle(j) + robot_state(angle_idx));
-                map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(actual_angle(j) + robot_state(angle_idx));
-            }
-        }
-        
+        arma::mat A = estimate(t);
         update_cov(A);
         // std::cout << "update cov = " << cov_mat << std::endl;
-        
+        // std::cout << "update robot = " << robot_state << std::endl;
+
         for (unsigned obst_idx = 0; obst_idx < map_state.size()/2; obst_idx++) {
             if (actual_d(obst_idx) > 0) {
                 arma::vec z = measurement_vec(obst_idx);       // Equation (25)
@@ -166,18 +161,17 @@ namespace kalman {
                 z_act(0) = actual_d(obst_idx);
                 z_act(1) = actual_angle(obst_idx);
                 arma::vec z_diff = z_act - z;
-                if (abs(z_diff(1)) >= 3) {  // normalize angle 
-                    z(1) = 2*rigid2d::PI + z(1); 
-                    z_diff = z_act - z;
-                }
+                z_diff(1) = rigid2d::normalize_angle(z_diff(1));
+
                 // std::cout << "actual z = " << z_act << std::endl;
                 // std::cout << "estimate z = " << z << std::endl;
                 // std::cout << "diff z = " << z_diff << std::endl;
                 arma::vec tmp = K * z_diff;
+
                 robot_state(0) = robot_state(0) + tmp(0);
                 robot_state(1) = robot_state(1) + tmp(1);
                 robot_state(2) = robot_state(2) + tmp(2);      // Equation (27)
-                robot_state(2) = rigid2d::normalize_angle(robot_state(2));
+                robot_state(angle_idx) = rigid2d::normalize_angle(robot_state(angle_idx));
 
                 for (unsigned i =0 ; i < map_state.size(); i++) {
                     map_state(i) = map_state(i) + tmp(3+i);    // Equation (27)

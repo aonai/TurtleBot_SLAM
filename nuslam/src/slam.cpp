@@ -291,10 +291,12 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
 
 
 /// \brief Broadcast the transform between frames:
-///     odom -> odometry turtle 
+///     odom -> fake turtle 
 ///     map -> odom
 ///     odom -> slam turtle
 ///     odom -> base_footprint
+/// After transform, world -> map -> odom -> base_footprint should let
+/// a robot model have a similar pose as turtle with noise.
 void Handler::tf_broadcast() {
   // odom -> odometry turtle 
   geometry_msgs::TransformStamped transformStamped;
@@ -313,7 +315,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // world -> map
+  // map -> odom
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "map";
   transformStamped.child_frame_id = "odom";
@@ -327,7 +329,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // map -> slam turtle
+  // odom -> slam turtle
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "odom";
   transformStamped.child_frame_id = "slam_turtle";
@@ -342,7 +344,7 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
-  // map -> base_footprint
+  // odom -> base_footprint
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "odom";
   transformStamped.child_frame_id = body_frame_id;
@@ -408,8 +410,9 @@ void Handler::pub_slam_obst_marker() {
 }
 
 /// \brief Compute the transformation between map and odom
-/// The T_odom_map should be the same as T_first_second_obst
-/// If only one obstacle is seen, T_odom_map is calculated from T_first_obst_map
+/// The T_map_odom should be the same as T_first_second_obst
+/// If only one obstacle is seen, T_odom_map is calculated from T_first_obst_map.
+/// However, in this case, the angle of transformation may be incorrect. 
 void Handler::align_tf() {
   arma::vec map_state = states.get_map_state();
   arma::vec robot_state = states.get_robot_state();
@@ -421,64 +424,70 @@ void Handler::align_tf() {
   map_odom_tf = {0, 0, 0};
   map_odom_tf.fill(0);
 
-  T_odom_map = config * T_map_robot.inv();
+  // T_odom_map = config * T_map_robot.inv();
   // ROS_INFO_STREAM("T_odom_map = " << T_odom_map.inv());
 
   unsigned n = 0;
-  bool first_obst = true;
   for (unsigned i = 0; i < x_coords.size()-1; i++) {
-    if (measure_d(i) > 0) {
-      n += 1;
-      double mx, my, ox, oy;
+    unsigned j = i+1;
+    for (j; j < x_coords.size(); j++) {
+      if (measure_d(i) > 0 && measure_d(j) > 0) {
+        n += 1;
 
-      // find next available obstacle
-      unsigned j = i+1;
-      while (j < measure_d.size() && measure_d(j) < 0 ) {
-        j += 1;
-      }
-
-      
-      if (j >= measure_d.size() && first_obst) {   // only one obstacle is seen
-          ROS_INFO_STREAM("one obst");
-          mx = map_state(2*i);
-          my = map_state(2*i+1);
-          ox = x_coords[i];
-          oy = y_coords[i];
-      } 
-      else if (j >= measure_d.size() && first_obst == false) {  // no available obstacle found
-        n -= 1;
-        break;
-      }
-      else { // use relative sensor info between two obstacles 
+        double mx, my, ox, oy;
         mx = map_state(2*i) - map_state(2*j);
         my = map_state(2*i+1) - map_state(2*j+1);
         ox = x_coords[i] - x_coords[j];
         oy = y_coords[i] - y_coords[j];
+              
+        // direction of obstacles 
+        double map_ang = atan2(my, mx);
+        double odom_ang = atan2(oy, ox);
+
+        // get translation 
+        rigid2d::Vector2D v_map {map_state(0), map_state(1)};
+        double theta_map = atan2(map_state(1), map_state(0));
+        rigid2d::Vector2D v_odom {x_coords[0], y_coords[0]};
+        double theta_odom = atan2(y_coords[0], x_coords[0]);
+
+        rigid2d::Transform2D Tm {v_map, map_ang};
+        rigid2d::Transform2D To {v_odom, odom_ang};
+        rigid2d::Transform2D result =  To * Tm.inv();
+
+        map_odom_tf(0) += result.theta();
+        map_odom_tf(1) += result.x();
+        map_odom_tf(2) += result.y();
       }
-      // ROS_INFO_STREAM("check -- " << i << " and " << j << " " << first_obst << measure_d.t());
+    }
 
-      // direction of obstacles 
-      double map_ang = atan2(my, mx);
-      double odom_ang = atan2(oy, ox);
+    if (i == 0 && j >= x_coords.size()) { // only one obstacle
+        n = 1;
 
-      // get translation 
-      rigid2d::Vector2D v_map {map_state(0), map_state(1)};
-      double theta_map = atan2(map_state(1), map_state(0));
-      rigid2d::Vector2D v_odom {x_coords[0], y_coords[0]};
-      double theta_odom = atan2(y_coords[0], x_coords[0]);
+        double mx, my, ox, oy;
+        mx = map_state(2*i);
+        my = map_state(2*i+1);
+        ox = x_coords[i];
+        oy = y_coords[i];
+              
+        // direction of obstacles 
+        double map_ang = atan2(my, mx);
+        double odom_ang = atan2(oy, ox);
 
-      rigid2d::Transform2D Tm {v_map, map_ang};
-      rigid2d::Transform2D To {v_odom, odom_ang};
-      rigid2d::Transform2D result =  To * Tm.inv();
+        // get translation 
+        rigid2d::Vector2D v_map {map_state(0), map_state(1)};
+        double theta_map = atan2(map_state(1), map_state(0));
+        rigid2d::Vector2D v_odom {x_coords[0], y_coords[0]};
+        double theta_odom = atan2(y_coords[0], x_coords[0]);
 
-      map_odom_tf(0) += result.theta();
-      map_odom_tf(1) += result.x();
-      map_odom_tf(2) += result.y();
+        rigid2d::Transform2D Tm {v_map, map_ang};
+        rigid2d::Transform2D To {v_odom, odom_ang};
+        rigid2d::Transform2D result =  To * Tm.inv();
 
-      first_obst = false;
+        map_odom_tf(0) = result.theta();
+        map_odom_tf(1) = result.x();
+        map_odom_tf(2) = result.y();
     }
   }
-
   // average transform
   if (n > 0) {
     map_odom_tf(0) /= n;
