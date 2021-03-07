@@ -124,11 +124,11 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   while (ros::ok()) {
     find_param(n);
 
+    pub_fake_sensor();
     pub_joint_state();
     pub_obst_marker();
     pub_path();
     tf_broadcast();
-    pub_fake_sensor();
 
 
     ros::Rate loop_rate(10);
