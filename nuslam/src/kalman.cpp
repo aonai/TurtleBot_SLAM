@@ -132,15 +132,20 @@ namespace kalman {
 
         // check if there is new landmark, then re-initialize states and covariance 
         if (actual_d.size() > map_state.size()/2) {
-            arma::vec actual_map_state = map_state; 
+            arma::vec new_map_state (actual_d.size() * 2); 
             for (unsigned j = 0; j < actual_d.size(); j++) { // Equation (23) and (24)
                 if (actual_d[j] > 0) {
-                    actual_map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(actual_angle(j) + robot_state(angle_idx));
-                    actual_map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(actual_angle(j) + robot_state(angle_idx));
+                    new_map_state(2*j) = robot_state(x_idx) + actual_d[j] * cos(actual_angle(j) + robot_state(angle_idx));
+                    new_map_state(2*j+1) = robot_state(y_idx) + actual_d[j] * sin(actual_angle(j) + robot_state(angle_idx));
+                }
+                else {
+                    new_map_state(2*j) = map_state(2*j);
+                    new_map_state(2*j+1) = map_state(2*j+1);
                 }
             }
-            map_state = actual_map_state;
+            map_state = new_map_state;
             reset_cov();
+            // std::cout << "update map = " << map_state << std::endl;
         }
 
         arma::mat A = estimate(t);

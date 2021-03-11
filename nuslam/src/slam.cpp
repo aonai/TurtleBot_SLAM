@@ -86,11 +86,9 @@ class Handler {
     rigid2d::DiffDrive odom;
     rigid2d::DiffDrive odom_slip;
     kalman::StateVec states;
-    arma::vec map_odom_tf = arma::vec {0, 0, 0};
     arma::vec measure_d;
     arma::vec measure_angle;
     arma::vec last_map_state;
-    rigid2d::Transform2D T_odom_map {0};
     // ROS members
     ros::Subscriber joint_states_sub;
     ros::Publisher odom_pub;
@@ -110,7 +108,6 @@ class Handler {
     bool set_pose_service_callback(rigid2d::SetPose::Request  & req, rigid2d::SetPose::Response & res);
     void pub_odom();
     void pub_slam_obst_marker();
-    void align_tf();
     void fake_measurement_sub_callback(const std_msgs::Float64MultiArray & msg);
 };
 
@@ -151,7 +148,6 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
       init = false;
     }
 
-    align_tf();
     pub_odom();
     pub_slam_obst_marker();
     tf_broadcast();
@@ -200,15 +196,10 @@ void Handler::pub_odom() {
   // publish slam turtle path
   path_pose.header.stamp = ros::Time::now();
   arma::vec robot_state = states.get_robot_state();
-  rigid2d::Vector2D v {map_odom_tf(1), map_odom_tf(2)};
-  rigid2d::Transform2D trans {v, map_odom_tf(0)};
-  rigid2d::Vector2D vr {robot_state(1), robot_state(2)};
-  rigid2d::Transform2D trans_r {vr, robot_state(0)};
-  rigid2d::Transform2D result = trans * trans_r;
-  path_pose.pose.position.x =  result.x();
-  path_pose.pose.position.y =  result.y();
+  path_pose.pose.position.x =  robot_state(1);
+  path_pose.pose.position.y =  robot_state(2);
   path_pose.pose.position.z = 0;
-  q.setRPY(0, 0,  result.theta());
+  q.setRPY(0, 0,  robot_state(0));
   path_pose.pose.orientation.x = q.x();
   path_pose.pose.orientation.y = q.y();
   path_pose.pose.orientation.z = q.z();
@@ -315,14 +306,21 @@ void Handler::tf_broadcast() {
   transformStamped.transform.rotation.w = q.w();
   br.sendTransform(transformStamped);
 
+  // Find transform from map to odom (config = T_odom_r)
+  arma::vec robot_state = states.get_robot_state();
+  rigid2d::Vector2D v_map {robot_state(1), robot_state(2)};
+  rigid2d::Transform2D T_map_r {v_map, robot_state(0)}; 
+  rigid2d::Transform2D T_map_odom = T_map_r * config.inv();
+  // ROS_INFO_STREAM("Calculated T_mo " << T_map_odom);
+
   // map -> odom
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "map";
   transformStamped.child_frame_id = "odom";
-  transformStamped.transform.translation.x = map_odom_tf(1);
-  transformStamped.transform.translation.y = map_odom_tf(2);
+  transformStamped.transform.translation.x = T_map_odom.x();
+  transformStamped.transform.translation.y = T_map_odom.y();
   transformStamped.transform.translation.z = 0.0;
-  q.setRPY(0, 0,  map_odom_tf(0));
+  q.setRPY(0, 0,  T_map_odom.theta());
   transformStamped.transform.rotation.x = q.x();
   transformStamped.transform.rotation.y = q.y();
   transformStamped.transform.rotation.z = q.z();
@@ -331,9 +329,8 @@ void Handler::tf_broadcast() {
 
   // odom -> slam turtle
   transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "odom";
+  transformStamped.header.frame_id = "map";
   transformStamped.child_frame_id = "slam_turtle";
-  arma::vec robot_state = states.get_robot_state();
   transformStamped.transform.translation.x = robot_state(1);
   transformStamped.transform.translation.y = robot_state(2);
   transformStamped.transform.translation.z = 0.0;
@@ -348,10 +345,10 @@ void Handler::tf_broadcast() {
   transformStamped.header.stamp = ros::Time::now();
   transformStamped.header.frame_id = "odom";
   transformStamped.child_frame_id = body_frame_id;
-  transformStamped.transform.translation.x = robot_state(1);
-  transformStamped.transform.translation.y = robot_state(2);
+  transformStamped.transform.translation.x = config.x();
+  transformStamped.transform.translation.y = config.y();
   transformStamped.transform.translation.z = 0.0;
-  q.setRPY(0, 0, robot_state(0));
+  q.setRPY(0, 0, config.theta());
   transformStamped.transform.rotation.x = q.x();
   transformStamped.transform.rotation.y = q.y();
   transformStamped.transform.rotation.z = q.z();
@@ -379,7 +376,7 @@ void Handler::pub_slam_obst_marker() {
   arma::vec map_state = states.get_map_state();
   for (unsigned i = 0; i < map_state.size()/2; i++) {
     visualization_msgs::Marker marker;
-    marker.header.frame_id = "odom";
+    marker.header.frame_id = "world";
     marker.header.stamp = ros::Time();
     marker.ns = "slam_obst";
     marker.id = i;
@@ -409,93 +406,7 @@ void Handler::pub_slam_obst_marker() {
   slam_obst_pub.publish( marker_array );
 }
 
-/// \brief Compute the transformation between map and odom
-/// The T_map_odom should be the same as T_first_second_obst
-/// If only one obstacle is seen, T_odom_map is calculated from T_first_obst_map.
-/// However, in this case, the angle of transformation may be incorrect. 
-void Handler::align_tf() {
-  arma::vec map_state = states.get_map_state();
-  arma::vec robot_state = states.get_robot_state();
-  // ROS_INFO_STREAM("current map " << map_state);
-  rigid2d::Vector2D v {robot_state(1), robot_state(2)};
-  rigid2d::Transform2D T_map_robot { v, robot_state(0)};
-  rigid2d::Transform2D config = odom_slip.config();
 
-  map_odom_tf = {0, 0, 0};
-  map_odom_tf.fill(0);
-
-  // T_odom_map = config * T_map_robot.inv();
-  // ROS_INFO_STREAM("T_odom_map = " << T_odom_map.inv());
-
-  unsigned n = 0;
-  for (unsigned i = 0; i < x_coords.size()-1; i++) {
-    unsigned j = i+1;
-    for (j; j < x_coords.size(); j++) {
-      if (measure_d(i) > 0 && measure_d(j) > 0) {
-        n += 1;
-
-        double mx, my, ox, oy;
-        mx = map_state(2*i) - map_state(2*j);
-        my = map_state(2*i+1) - map_state(2*j+1);
-        ox = x_coords[i] - x_coords[j];
-        oy = y_coords[i] - y_coords[j];
-              
-        // direction of obstacles 
-        double map_ang = atan2(my, mx);
-        double odom_ang = atan2(oy, ox);
-
-        // get translation 
-        rigid2d::Vector2D v_map {map_state(0), map_state(1)};
-        double theta_map = atan2(map_state(1), map_state(0));
-        rigid2d::Vector2D v_odom {x_coords[0], y_coords[0]};
-        double theta_odom = atan2(y_coords[0], x_coords[0]);
-
-        rigid2d::Transform2D Tm {v_map, map_ang};
-        rigid2d::Transform2D To {v_odom, odom_ang};
-        rigid2d::Transform2D result =  To * Tm.inv();
-
-        map_odom_tf(0) += result.theta();
-        map_odom_tf(1) += result.x();
-        map_odom_tf(2) += result.y();
-      }
-    }
-
-    if (i == 0 && j >= x_coords.size()) { // only one obstacle
-        n = 1;
-
-        double mx, my, ox, oy;
-        mx = map_state(2*i);
-        my = map_state(2*i+1);
-        ox = x_coords[i];
-        oy = y_coords[i];
-              
-        // direction of obstacles 
-        double map_ang = atan2(my, mx);
-        double odom_ang = atan2(oy, ox);
-
-        // get translation 
-        rigid2d::Vector2D v_map {map_state(0), map_state(1)};
-        double theta_map = atan2(map_state(1), map_state(0));
-        rigid2d::Vector2D v_odom {x_coords[0], y_coords[0]};
-        double theta_odom = atan2(y_coords[0], x_coords[0]);
-
-        rigid2d::Transform2D Tm {v_map, map_ang};
-        rigid2d::Transform2D To {v_odom, odom_ang};
-        rigid2d::Transform2D result =  To * Tm.inv();
-
-        map_odom_tf(0) = result.theta();
-        map_odom_tf(1) = result.x();
-        map_odom_tf(2) = result.y();
-    }
-  }
-  // average transform
-  if (n > 0) {
-    map_odom_tf(0) /= n;
-    map_odom_tf(1) /= n;
-    map_odom_tf(2) /= n;
-  }
-  // ROS_INFO_STREAM(" === Final tf = " << map_odom_tf.t());
-}
 
 /// \brief Callback function for fake_measurement subscriber
 /// \param msg - float array in form {d1, theat_1, d2, theta_2, ...}
