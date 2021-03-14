@@ -494,7 +494,7 @@ void Handler::timer_callback(const ros::TimerEvent& event){
   laser_scan_msg.header.stamp = ros::Time();
   laser_scan_msg.header.frame_id = "turtle";
   laser_scan_msg.angle_min = 0.0;
-  laser_scan_msg.angle_max = 6.28319;
+  laser_scan_msg.angle_max = rigid2d::PI * 2;
   laser_scan_msg.angle_increment = laser_angle_increment;
   laser_scan_msg.range_min = laser_range_min;
   laser_scan_msg.range_max = laser_range_max;
@@ -503,10 +503,10 @@ void Handler::timer_callback(const ros::TimerEvent& event){
 
   double wall_dis = 2.5;
   arma::vec r_arr (laser_samples_num);
+  r_arr.fill(laser_range_max+1);
   arma::vec x_arr (laser_samples_num);
   arma::vec y_arr (laser_samples_num);
 
-  arma::vec wall_arr (laser_samples_num);
   for (unsigned i = 0; i < laser_samples_num; i ++) { // make walls
     double angle = i * laser_angle_increment;
     angle = fmod(angle, rigid2d::PI/2);
@@ -544,11 +544,13 @@ void Handler::timer_callback(const ros::TimerEvent& event){
   }
 
 
-  for (unsigned i = 0; i < laser_samples_num; i ++) {
-    std::normal_distribution<> d(0, laser_noise_level);
-    double noise_r = d(get_random());
+  for (unsigned i = 0; i < laser_samples_num; i ++) { // convert to turtle frame 
+    double mx = x_arr(i);
+    double my = y_arr(i);
+    double x = mx - config.x();
+    double y = my - config.y();
 
-    double angle = i * laser_angle_increment + config.theta();
+    double angle = atan2(y, x) - config.theta();
     angle = rigid2d::normalize_angle(angle);
     if (angle < 0) {
       angle += rigid2d::PI * 2;
@@ -556,28 +558,34 @@ void Handler::timer_callback(const ros::TimerEvent& event){
     int angle_idx = angle / laser_angle_increment;
     angle_idx = fmod(angle_idx, 360);
 
-    double x = x_arr(angle_idx) - config.x();
-    double y = y_arr(angle_idx) - config.y();
     double r = sqrt(pow(x,2)+pow(y,2));
+    // ROS_INFO_STREAM("Check r " << angle_idx << " --- " << r << " " << x << " " << y);
 
-    for (unsigned j = 0; j < x_coords.size(); j++) {
+    for (unsigned j = 0; j < x_coords.size(); j++) { // check landmarks 
       double x_dist = x_coords[j] - config.x();
       double y_dist = y_coords[j] - config.y();
       double measure_dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
       double laser_angle = atan2(y_dist, x_dist) - config.theta();
-     
-      double angle = i * laser_angle_increment;
-      angle = rigid2d::normalize_angle(angle);
-      // ROS_INFO_STREAM("Check angle " << j << " --- " << laser_angle << " " << angle );
+      laser_angle = rigid2d::normalize_angle(laser_angle);
+      if (laser_angle < 0) {
+        laser_angle += rigid2d::PI * 2;
+      } 
 
-      if (rigid2d::almost_equal(angle, laser_angle, 0.08)) {
+      if (rigid2d::almost_equal(angle, laser_angle, 0.1/measure_dist)) {
         r = measure_dist - 1.2 * obst_radius;
-        r += obst_radius * 8 * abs(laser_angle - angle);
+        r *= (1 + 10*pow(abs(laser_angle - angle),2));
         break;
       }
     }
 
-    laser_scan_msg.ranges.push_back(r);
+    r_arr(angle_idx) = r;
+  }
+
+  for (unsigned i = 0; i < laser_samples_num; i ++) { // publish 
+    std::normal_distribution<> d(0, laser_noise_level);
+    double noise_r = d(get_random());
+    double r = r_arr(i);
+    laser_scan_msg.ranges.push_back(r+noise_r);
   }
 
   laser_scan_pub.publish(laser_scan_msg);
