@@ -13,8 +13,10 @@
     <param name="noise_variance" value="0.01" type="double"/>
     <param name="slip_min" value="-0.01" type="double"/>
     <param name="slip_max" value="0.01" type="double"/>
-    <rosparam param="x_coords">[-1.0, -2.0, 3.0, 2.3, 2.3, -1.2, 0.9, -1.4, 1.3]</rosparam>
-    <rosparam param="y_coords">[-0.5, -2.0, 2.5, -3.6, -1.3, 3.1, 4.3, 2.2, 0.5]</rosparam>
+    <!-- <rosparam param="x_coords">[-1.0, -2.0, 3.0, 2.3, 2.3, -1.2, 0.9, -1.4, 1.3]</rosparam>
+    <rosparam param="y_coords">[-0.5, -2.0, 2.5, -3.6, -1.3, 3.1, 4.3, 2.2, 0.5]</rosparam> -->
+    <rosparam param="x_coords">[1.0, -1.0]</rosparam>
+    <rosparam param="y_coords">[0.5, -1.0]</rosparam>
     <rosparam param="covariance_matrix_0">[1.0, 1.0]</rosparam>
     <rosparam param="covariance_matrix_1">[1.0, 1.0]</rosparam>
     <param name="obst_radius" value="0.0762" type="double"/>
@@ -22,11 +24,17 @@
     <param name="tube_var" value="0.01" type="double"/>
     <param name="use_odom" value="true" type="bool" if="$(arg use_odom)"/>
     <param name="use_odom" value="false" type="bool" unless="$(arg use_odom)"/>
+    <param name="laser_range_min" value="0.12" type="double"/>
+    <param name="laser_range_max" value="3.5" type="double"/>
+    <param name="laser_angle_increment" value="0.01744" type="double"/>
+    <param name="laser_samples_num" value="360" type="int"/>
+    <param name="laser_resolution" value="0.015" type="double"/>
+    <param name="laser_noise_level" value="0.01" type="double"/>
     
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />
     <node name="odometer" pkg="rigid2d" type="odometer" if="$(arg use_odom)"/>
-    <node name="tube_world" pkg="nurtlesim" type="tube_world"/>
+    <node name="tube_world" pkg="nurtlesim" type="tube_world" output="screen"/>
 
     <param name="robot_description" command="$(find xacro)/xacro --inorder $(find nuturtle_description)/urdf/turtlebot3_burger.urdf.xacro" />
     <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>

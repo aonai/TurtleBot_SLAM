@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
     tf2_ros
     visualization_msgs
 )
+find_package(Armadillo REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -128,6 +129,7 @@ catkin_package(
 include_directories(
 # include
     ${catkin_INCLUDE_DIRS}
+    ${ARMADILLO_INCLUDE_DIRS}
 )
 
 
@@ -161,6 +163,7 @@ add_dependencies(${PROJECT_NAME}_tube_world ${${PROJECT_NAME}_EXPORTED_TARGETS} 
 target_link_libraries(${PROJECT_NAME}_tube_world
   ${catkin_LIBRARIES}
   rigid2d
+  ${ARMADILLO_LIBRARIES}
 )
 #############
 ## Install ##

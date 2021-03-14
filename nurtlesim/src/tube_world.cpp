@@ -53,6 +53,8 @@
 #include "std_msgs/Float64MultiArray.h"
 #include "rigid2d/rigid2d.hpp"
 #include "rigid2d/diff_drive.hpp"
+#include "sensor_msgs/LaserScan.h"
+#include <armadillo>
 
 
 /// \brief Helper class for node tube_world
@@ -85,7 +87,13 @@ class Handler {
     double tube_var = 0.001;
     bool use_odom = false;
     rigid2d::DiffDrive fake;             
-    rigid2d::DiffDrive fake_slip;        
+    rigid2d::DiffDrive fake_slip;    
+    double laser_range_min = 0.12;
+    double laser_range_max = 3.5;
+    double laser_angle_increment = 0.01744;
+    int laser_samples_num = 360;
+    double laser_resolution = 0.015;
+    double laser_noise_level = 0.0;
     // ROS members     
     ros::Time begin = ros::Time::now();
     ros::Subscriber cmd_vel_sub;
@@ -96,6 +104,8 @@ class Handler {
     tf2_ros::TransformBroadcaster br;
     ros::Publisher fake_sensor_pub;
     ros::Publisher fake_measurenmt_pub;
+    ros::Publisher laser_scan_pub;
+    ros::Timer timer;
     // helper functions
     void find_param(ros::NodeHandle & n);
     void cmd_vel_sub_callback(const geometry_msgs::Twist & vel);
@@ -106,6 +116,7 @@ class Handler {
     void pub_fake_sensor();
     void check_collision(double period_secs);
     void update_turtle(double period_secs, double omg, double vx, rigid2d::DiffDrive & turtle, bool add_noise);
+    void timer_callback(const ros::TimerEvent& event);
     std::mt19937 & get_random();
 };
 
@@ -120,7 +131,9 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   path_msg.header.frame_id="world"; 
   fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
   fake_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "fake_measurement", 10 );
-  
+  laser_scan_pub = n.advertise<sensor_msgs::LaserScan>( "laser_scan", 10 );
+  timer =  n.createTimer(ros::Duration(0.2), &Handler::timer_callback, this);
+
   while (ros::ok()) {
     find_param(n);
 
@@ -175,6 +188,12 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("obst_max_dist", obst_max_dist, 2.0);
   n.param("tube_var", tube_var, 0.01);
   n.param("use_odom", use_odom, false);
+  n.param("laser_range_min", laser_range_min, 0.12);
+  n.param("laser_range_max", laser_range_max, 3.5);
+  n.param("laser_angle_increment", laser_angle_increment, 0.01744);
+  n.param("laser_samples_num", laser_samples_num, 360);
+  n.param("laser_resolution", laser_resolution, 0.015);
+  n.param("laser_noise_level", laser_noise_level, 0.01);
 }
 
 /// \brief Callback function for cmd_vel subscriber
@@ -467,6 +486,101 @@ void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::
     current_rad_left_slip += vL_slip;
     current_rad_right_slip += vR_slip;
   }
+
+}
+    
+void Handler::timer_callback(const ros::TimerEvent& event){
+  sensor_msgs::LaserScan laser_scan_msg;
+  laser_scan_msg.header.stamp = ros::Time();
+  laser_scan_msg.header.frame_id = "turtle";
+  laser_scan_msg.angle_min = 0.0;
+  laser_scan_msg.angle_max = 6.28319;
+  laser_scan_msg.angle_increment = laser_angle_increment;
+  laser_scan_msg.range_min = laser_range_min;
+  laser_scan_msg.range_max = laser_range_max;
+
+  rigid2d::Transform2D config = fake_slip.config();
+
+  double wall_dis = 2.5;
+  arma::vec r_arr (laser_samples_num);
+  arma::vec x_arr (laser_samples_num);
+  arma::vec y_arr (laser_samples_num);
+
+  arma::vec wall_arr (laser_samples_num);
+  for (unsigned i = 0; i < laser_samples_num; i ++) { // make walls
+    double angle = i * laser_angle_increment;
+    angle = fmod(angle, rigid2d::PI/2);
+
+    double r, x, y;
+    if (angle <= rigid2d::PI/4){
+      r = wall_dis/cos(angle);
+    }
+    else {
+      r = wall_dis/sin(angle);
+    }
+
+    if (i <= 90) {
+      x = r * cos(angle);
+      y = r * sin(angle);
+    }
+    else if (i <= 180) {
+      x = -r * sin(angle);
+      y = r * cos(angle);
+    } 
+    else if (i <= 270) {
+      x = -r * cos(angle);
+      y = -r * sin(angle);
+    } 
+    else if (i <= 360) {
+      x = r * sin(angle);
+      y = -r * cos(angle);
+    } 
+
+    // r = sqrt(pow(x, 2)+pow(y,2));
+    // r_arr(i) = r;
+    x_arr(i) = x;
+    y_arr(i) = y;
+    // ROS_INFO_STREAM("Check x y " << i << " --- " << r << " " << x << " " << y );
+  }
+
+
+  for (unsigned i = 0; i < laser_samples_num; i ++) {
+    std::normal_distribution<> d(0, laser_noise_level);
+    double noise_r = d(get_random());
+
+    double angle = i * laser_angle_increment + config.theta();
+    angle = rigid2d::normalize_angle(angle);
+    if (angle < 0) {
+      angle += rigid2d::PI * 2;
+    } 
+    int angle_idx = angle / laser_angle_increment;
+    angle_idx = fmod(angle_idx, 360);
+
+    double x = x_arr(angle_idx) - config.x();
+    double y = y_arr(angle_idx) - config.y();
+    double r = sqrt(pow(x,2)+pow(y,2));
+
+    for (unsigned j = 0; j < x_coords.size(); j++) {
+      double x_dist = x_coords[j] - config.x();
+      double y_dist = y_coords[j] - config.y();
+      double measure_dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+      double laser_angle = atan2(y_dist, x_dist) - config.theta();
+     
+      double angle = i * laser_angle_increment;
+      angle = rigid2d::normalize_angle(angle);
+      // ROS_INFO_STREAM("Check angle " << j << " --- " << laser_angle << " " << angle );
+
+      if (rigid2d::almost_equal(angle, laser_angle, 0.08)) {
+        r = measure_dist - 1.2 * obst_radius;
+        r += obst_radius * 8 * abs(laser_angle - angle);
+        break;
+      }
+    }
+
+    laser_scan_msg.ranges.push_back(r);
+  }
+
+  laser_scan_pub.publish(laser_scan_msg);
 }
 
 
