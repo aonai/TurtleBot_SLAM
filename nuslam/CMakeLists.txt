@@ -8,6 +8,7 @@ project(nuslam)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+    catch_ros
     geometry_msgs
     nav_msgs
     rigid2d
@@ -112,6 +113,7 @@ find_package(Armadillo REQUIRED)
 catkin_package(
  INCLUDE_DIRS include
  LIBRARIES  ${PROJECT_NAME}
+ CATKIN_DEPENDS catch_ros
  CATKIN_DEPENDS geometry_msgs
  CATKIN_DEPENDS nav_msgs
  CATKIN_DEPENDS rigid2d
@@ -247,3 +249,10 @@ install(DIRECTORY launch/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+catch_add_test(${PROJECT_NAME}_test tests/circle_tests.cpp )
+target_link_libraries(${PROJECT_NAME}_test
+  ${PROJECT_NAME}
+  rigid2d
+  ${catkin_LIBRARIES}
+  ${ARMADILLO_LIBRARIES}
+)

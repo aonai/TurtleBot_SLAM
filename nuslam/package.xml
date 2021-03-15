@@ -66,6 +66,7 @@
   <build_depend>visualization_msgs</build_depend>
   <build_export_depend>visualization_msgs</build_export_depend>
   <exec_depend>nurtlesim</exec_depend>
+  <depend>catch_ros</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->
