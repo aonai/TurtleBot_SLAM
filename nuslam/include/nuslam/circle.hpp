@@ -5,7 +5,7 @@
 
 namespace circle {
 
-    double group_thresh = 0.1;
+    double group_thresh = 0.3;
 
     arma::field <arma::vec> group_clusters(arma::vec ranges, arma::vec angles);
 
@@ -27,6 +27,8 @@ namespace circle {
             Cluster();
 
             void fit_circle();
+
+            void classify_arc();
 
             bool check_is_circle();
 

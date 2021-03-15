@@ -575,7 +575,8 @@ void Handler::timer_callback(const ros::TimerEvent& event){
 
       if (rigid2d::almost_equal(angle, laser_angle, 0.08/measure_dist)) {
         r = measure_dist - 1.2 * obst_radius;
-        r *= (1 + 10*pow(abs(laser_angle - angle),2));
+        r *= (1 + 10*pow(fabs(laser_angle - angle),2));
+        // r *= (1 + fabs(laser_angle - angle));
         break;
       }
     }
@@ -595,7 +596,8 @@ void Handler::timer_callback(const ros::TimerEvent& event){
       // ROS_INFO_STREAM(idx);
       r = r_arr(idx);
     }
-    laser_scan_msg.ranges.push_back(r+noise_r);
+    // laser_scan_msg.ranges.push_back(r+noise_r);
+    laser_scan_msg.ranges.push_back(r);
   }
 
   laser_scan_pub.publish(laser_scan_msg);

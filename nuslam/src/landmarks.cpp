@@ -27,6 +27,7 @@ class Handler {
     double laser_angle_increment = 0.01744;
     int laser_samples_num = 360;
     double wall_size = 2.5;
+    bool is_simu = true;
     double rad_left_thresh = 0.0;
     double rad_right_thresh = 0.0;
     double rad_left_old = 0.0;
@@ -79,6 +80,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("laser_angle_increment", laser_angle_increment, 0.01744);
   n.param("laser_samples_num", laser_samples_num, 360);
   n.param("wall_size", wall_size, 2.5);
+  n.param("is_simu", is_simu, true);
 }
 
 void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
@@ -101,15 +103,9 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       
       circle::Cluster group {cluster_groups(i)};
       group.fit_circle();
-      cluster_is_circle(i) = group.check_is_circle();
       cluster_center(2*i) = group.get_center_x();
       cluster_center(2*i+1) = group.get_center_y();
       cluster_radius(i) = group.get_circle_radius();
-      
-      if (cluster_radius(i) > obst_radius*2) {
-        // std::cout << "change is circle at " << i <<ssss " R = " << cluster_radius(i) << std::endl;
-        cluster_is_circle(i) = false;
-      }
       
       // convert to world frame
       rigid2d::Transform2D config = odom.config();
@@ -124,18 +120,35 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       world_center(2*i) = center_x;
       world_center(2*i+1) = center_y;
 
-      // filter out circle too close to wall or out of range
-      if ( fabs(center_x) >= wall_size-obst_radius*3 || fabs(center_y) >= wall_size-obst_radius*3
-          || sqrt(pow(x_to_turtle,2)+pow(y_to_turtle,2)) >= laser_range_max 
-          || sqrt(pow(x_to_turtle,2)+pow(y_to_turtle,2)) <= laser_range_min ) {
-        
+     
+      if (is_simu) { // filter out circle too close to wall or out of range
+        if ( fabs(center_x) >= wall_size-obst_radius*3 || fabs(center_y) >= wall_size-obst_radius*3) {
+          cluster_is_circle(i) = false;
+        }
+      }
+      else { // filter out circle that are not arc
+        group.classify_arc();
+        cluster_is_circle(i) = group.check_is_circle();
+      }
+
+      // check circle radius 
+      if (cluster_radius(i) > obst_radius*1.5 || cluster_radius(i) < obst_radius*0.5) {
+        // std::cout << "change is circle at " << i <<ssss " R = " << cluster_radius(i) << std::endl;
         cluster_is_circle(i) = false;
       }
-    }
 
-    // std::cout << "is circle " << cluster_is_circle.t() << std::endl;
-    // std::cout << "center = " << world_center.t() << std::endl;
-    // std::cout << "circle_r = " << cluster_radius.t() << std::endl;
+      // filter out circles that are out of range
+      if ( sqrt(pow(x_to_turtle,2)+pow(y_to_turtle,2)) >= laser_range_max 
+          || sqrt(pow(x_to_turtle,2)+pow(y_to_turtle,2)) <= laser_range_min ) {
+        cluster_is_circle(i) = false;
+      }
+
+      if (cluster_is_circle(i)) {
+        std::cout << "center = " << world_center(2*i) << " " << world_center(2*i+1) << std::endl;
+        std::cout << "circle_r = " << cluster_radius(i) << std::endl;
+      }
+
+    }
 
 }
 
