@@ -137,6 +137,7 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   src/kalman.cpp
+  src/circle.cpp
 )
 
 ## Add cmake target dependencies of the library
@@ -149,6 +150,7 @@ add_library(${PROJECT_NAME}
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(${PROJECT_NAME}_main src/main.cpp)
 add_executable(${PROJECT_NAME}_slam src/slam.cpp)
+add_executable(${PROJECT_NAME}_landmarks src/landmarks.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -156,11 +158,13 @@ add_executable(${PROJECT_NAME}_slam src/slam.cpp)
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
 set_target_properties(${PROJECT_NAME}_main PROPERTIES OUTPUT_NAME main PREFIX "")
 set_target_properties(${PROJECT_NAME}_slam PROPERTIES OUTPUT_NAME slam PREFIX "")
+set_target_properties(${PROJECT_NAME}_landmarks PROPERTIES OUTPUT_NAME landmarks PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(${PROJECT_NAME}_main ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(${PROJECT_NAME}_slam ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME}_landmarks ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_main
@@ -170,6 +174,12 @@ target_link_libraries(${PROJECT_NAME}_main
   ${ARMADILLO_LIBRARIES}
 )
 target_link_libraries(${PROJECT_NAME}_slam
+  ${catkin_LIBRARIES}
+  rigid2d
+  ${PROJECT_NAME}
+  ${ARMADILLO_LIBRARIES}
+)
+target_link_libraries(${PROJECT_NAME}_landmarks
   ${catkin_LIBRARIES}
   rigid2d
   ${PROJECT_NAME}
@@ -195,6 +205,9 @@ install(TARGETS ${PROJECT_NAME}_main
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 install(TARGETS ${PROJECT_NAME}_slam
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+install(TARGETS ${PROJECT_NAME}_landmarks
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

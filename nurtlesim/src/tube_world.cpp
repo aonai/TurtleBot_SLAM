@@ -94,6 +94,9 @@ class Handler {
     int laser_samples_num = 360;
     double laser_resolution = 0.015;
     double laser_noise_level = 0.0;
+    double wall_size = 2.5;  
+    arma::vec x_arr;
+    arma::vec y_arr;
     // ROS members     
     ros::Time begin = ros::Time::now();
     ros::Subscriber cmd_vel_sub;
@@ -194,6 +197,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("laser_samples_num", laser_samples_num, 360);
   n.param("laser_resolution", laser_resolution, 0.015);
   n.param("laser_noise_level", laser_noise_level, 0.01);
+  n.param("wall_size", wall_size, 2.5);
 }
 
 /// \brief Callback function for cmd_vel subscriber
@@ -501,22 +505,21 @@ void Handler::timer_callback(const ros::TimerEvent& event){
 
   rigid2d::Transform2D config = fake_slip.config();
 
-  double wall_dis = 2.5;
   arma::vec r_arr (laser_samples_num);
   r_arr.fill(laser_range_max+1);
+
   arma::vec x_arr (laser_samples_num);
   arma::vec y_arr (laser_samples_num);
-
   for (unsigned i = 0; i < laser_samples_num; i ++) { // make walls
     double angle = i * laser_angle_increment;
     angle = fmod(angle, rigid2d::PI/2);
 
     double r, x, y;
     if (angle <= rigid2d::PI/4){
-      r = wall_dis/cos(angle);
+      r = wall_size/cos(angle);
     }
     else {
-      r = wall_dis/sin(angle);
+      r = wall_size/sin(angle);
     }
 
     if (i <= 90) {
@@ -542,7 +545,6 @@ void Handler::timer_callback(const ros::TimerEvent& event){
     y_arr(i) = y;
     // ROS_INFO_STREAM("Check x y " << i << " --- " << r << " " << x << " " << y );
   }
-
 
   for (unsigned i = 0; i < laser_samples_num; i ++) { // convert to turtle frame 
     double mx = x_arr(i);
@@ -571,7 +573,7 @@ void Handler::timer_callback(const ros::TimerEvent& event){
         laser_angle += rigid2d::PI * 2;
       } 
 
-      if (rigid2d::almost_equal(angle, laser_angle, 0.1/measure_dist)) {
+      if (rigid2d::almost_equal(angle, laser_angle, 0.08/measure_dist)) {
         r = measure_dist - 1.2 * obst_radius;
         r *= (1 + 10*pow(abs(laser_angle - angle),2));
         break;
@@ -585,6 +587,14 @@ void Handler::timer_callback(const ros::TimerEvent& event){
     std::normal_distribution<> d(0, laser_noise_level);
     double noise_r = d(get_random());
     double r = r_arr(i);
+    if (r > laser_range_max) {
+      int idx = i - 1;
+      if (idx < 0) {
+        idx += laser_samples_num;
+      }
+      // ROS_INFO_STREAM(idx);
+      r = r_arr(idx);
+    }
     laser_scan_msg.ranges.push_back(r+noise_r);
   }
 

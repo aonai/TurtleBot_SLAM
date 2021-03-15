@@ -30,6 +30,7 @@
     <param name="laser_samples_num" value="360" type="int"/>
     <param name="laser_resolution" value="0.015" type="double"/>
     <param name="laser_noise_level" value="0.01" type="double"/>
+    <param name="wall_size" value="2.5" type="double"/>
     
 
     <node pkg="turtlebot3_teleop" type="turtlebot3_teleop_key" name="turtlebot3_teleop_keyboard" output="log" launch-prefix="gnome-terminal --command" />

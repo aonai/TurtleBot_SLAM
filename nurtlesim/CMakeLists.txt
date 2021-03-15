@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
     nav_msgs
     rigid2d
     roscpp
+    sensor_msgs
     tf2
     tf2_ros
     visualization_msgs
@@ -114,6 +115,7 @@ catkin_package(
  CATKIN_DEPENDS nav_msgs
  CATKIN_DEPENDS rigid2d
  CATKIN_DEPENDS roscpp
+ CATKIN_DEPENDS sensor_msgs
  CATKIN_DEPENDS tf2
  CATKIN_DEPENDS tf2_ros
  CATKIN_DEPENDS visualization_msgs
