@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+#include "rigid2d/rigid2d.hpp"
 #include "nuslam/circle.hpp"
 
 namespace circle {
@@ -238,16 +239,16 @@ namespace circle {
             for (unsigned j = 0; j < x_arr.size(); j++) {
                 double d1 = sqrt(pow(p1x-x_arr(j),2) + pow(p1y-y_arr(j),2));
                 double d2 = sqrt(pow(p2x-x_arr(j),2) + pow(p2y-y_arr(j),2));
-                p_ang(j) = atan2(d2, d1);
+                p_ang(j) = rigid2d::PI - atan2(d2, d1) - atan2(d1,d2);
             }
-            double ang_mean = arma::mean(p_ang) * 180/3.14159265358979323846;
+            double ang_mean = arma::mean(p_ang) * 180/rigid2d::PI;
             double ang_std = arma::stddev(p_ang);
-            std::cout << " --- mean = " << ang_mean << " std_dev = " << ang_std << " R = " << circle_radius << std::endl;
+            // std::cout << " mean = " << ang_mean << " std_dev = " << ang_std << " R = " << circle_radius << std::endl;
 
             // if (ang_std > 0.5 || fabs(ang_mean) <= 90 || fabs(ang_mean) >= 135) {
-            if (ang_std > 0.7) {
-                is_circle = false;
-            }
+            // if (ang_std > 0.6) {
+            //     is_circle = false;
+            // }
 
        
         }

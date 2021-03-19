@@ -596,8 +596,7 @@ void Handler::timer_callback(const ros::TimerEvent& event){
       // ROS_INFO_STREAM(idx);
       r = r_arr(idx);
     }
-    // laser_scan_msg.ranges.push_back(r+noise_r);
-    laser_scan_msg.ranges.push_back(r);
+    laser_scan_msg.ranges.push_back(r+noise_r);
   }
 
   laser_scan_pub.publish(laser_scan_msg);

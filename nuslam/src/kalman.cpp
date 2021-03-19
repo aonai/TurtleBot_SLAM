@@ -203,14 +203,20 @@ namespace kalman {
         return map_state;
     }
 
+    arma::mat StateVec::get_cov() {
+        return cov_mat;
+    }
+    
     void StateVec::set_map_state(arma::vec ms) {
         map_state = ms;
+        std::cout << "set ms " << map_state.t() << std::endl;
         reset_cov();
     }
 
     void StateVec::set_robot_state(arma::vec rs) {
         robot_state = rs;
     }
+
 
     void StateVec::reset_cov() {
         unsigned n_obst = map_state.size()/2;
@@ -258,6 +264,59 @@ namespace kalman {
         }
 
         return noises;
+    }
+
+    int StateVec::check_association(arma::mat latest_cov) {
+        std::cout << "@asso ms = " << map_state.t() << std::endl;
+
+        for (unsigned i = 0; i < latest_cov.n_rows; i++) {
+            for (unsigned j = 0; j < latest_cov.n_cols; j++) {
+                cov_mat(i, j) = latest_cov(i, j);
+            }
+        }
+
+        // std::cout << "current cov = " << cov_mat << std::endl;
+
+        arma::vec mah_dist(map_state.size()/2-1);
+        for (unsigned k = 0; k < map_state.size()/2-1; k++) {
+            // std::cout << "-------- start " << k << "---------------" << std::endl;
+            arma::mat H = H_mat(k);
+            // std::cout << "H = " << H << std::endl;
+
+            arma::mat psi = H * cov_mat * H.t() + sensor_noise_var;
+            // std::cout << "psi = " << psi << std::endl;
+
+            arma::vec z_exp = measurement_vec(k); 
+            // std::cout << "z_exp = " << z_exp.t() << std::endl;
+            
+            arma::vec z_measure = measurement_vec(map_state.size()/2-1); 
+            // std::cout << "z_measure = " << z_measure.t() << std::endl;
+
+            arma::vec z_diff = z_measure - z_exp;
+            z_diff(1) = rigid2d::normalize_angle(z_diff(1));
+            // std::cout << "z_diff = " << z_diff.t() << std::endl;
+            
+            arma::vec d = z_diff.t() * arma::pinv(psi, 0.01) * z_diff;
+            // std::cout << "d = " << d << std::endl;
+            mah_dist(k) = d(0);
+
+            // std::cout << "-------- end " << k << "---------------" << std::endl;
+        }
+        std::cout << "mah_dist = " << mah_dist.t() << std::endl;
+        
+        double min_d = mah_dist.min();
+        double min_idx = mah_dist.index_min();
+        std::cout << "min = " << min_d << " at " << min_idx << std::endl;
+
+        if (min_d > 10) {
+            std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
+            return map_state.size()/2-1;
+        }
+        else {
+            return min_idx;
+        }
+
+        return -1;
     }
 
 }

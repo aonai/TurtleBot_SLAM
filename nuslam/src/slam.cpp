@@ -81,6 +81,8 @@ class Handler {
     double rad_right_slip_old = 0.0;
     double state_var = 0.01;
     double sensor_var = 0.001;
+    double rad_left_accumu = 0.0;
+    double rad_right_accumu = 0.0;
     arma::vec seen;
     arma::vec init_map_state;
     rigid2d::DiffDrive odom;
@@ -89,6 +91,7 @@ class Handler {
     arma::vec measure_d;
     arma::vec measure_angle;
     arma::vec last_map_state;
+    arma::vec lm_map;
     // ROS members
     ros::Subscriber joint_states_sub;
     ros::Publisher odom_pub;
@@ -100,6 +103,7 @@ class Handler {
     nav_msgs::Path slam_path_msg; 
     ros::Publisher slam_obst_pub;
     ros::Subscriber fake_measurenmt_sub;
+    ros::Subscriber lm_measurenmt_sub;
     bool init = true;
     //helper functions
     void find_param(ros::NodeHandle & n);
@@ -109,6 +113,7 @@ class Handler {
     void pub_odom();
     void pub_slam_obst_marker();
     void fake_measurement_sub_callback(const std_msgs::Float64MultiArray & msg);
+    void lm_measurement_sub_callback(const std_msgs::Float64MultiArray & msg);
 };
 
 /// \brief Init Handler class
@@ -125,7 +130,8 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
   slam_path_msg.header.stamp=ros::Time::now();
   slam_path_msg.header.frame_id="world"; 
   slam_obst_pub = n.advertise<visualization_msgs::MarkerArray>( "slam_obst", 10 );
-  fake_measurenmt_sub = n.subscribe("fake_measurement", 10, &Handler::fake_measurement_sub_callback, this);
+  // fake_measurenmt_sub = n.subscribe("fake_measurement", 10, &Handler::fake_measurement_sub_callback, this);
+  lm_measurenmt_sub = n.subscribe("lm_measurement", 10, &Handler::lm_measurement_sub_callback, this);
 
   while (ros::ok()) {
     find_param(n);
@@ -134,19 +140,19 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
     states.set_noises(state_var, sensor_var);
 
     // initialize Kalman slam
-    if (init) {
-      last_map_state = init_map_state;
-      seen = arma::vec (init_map_state.size()/2);
-      seen.fill(false);
-      states.set_map_state(init_map_state);
+    // if (init) {
+    //   last_map_state = init_map_state;
+    //   seen = arma::vec (init_map_state.size()/2);
+    //   seen.fill(false);
+    //   states.set_map_state(init_map_state);
 
-      measure_d = arma::vec (x_coords.size());
-      measure_angle = arma::vec (x_coords.size());
-      measure_d.fill(-1);
-      measure_angle.fill(-1);
+    //   measure_d = arma::vec (x_coords.size());
+    //   measure_angle = arma::vec (x_coords.size());
+    //   measure_d.fill(-1);
+    //   measure_angle.fill(-1);
 
-      init = false;
-    }
+    //   init = false;
+    // }
 
     pub_odom();
     pub_slam_obst_marker();
@@ -272,11 +278,10 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     rad_left_slip_old = rad_left_slip;
     rad_right_slip_old = rad_right_slip;
 
+
     // calcualte slam turtle 
-    rigid2d::DiffDriveVel vel {rad_left_diff, rad_right_diff};
-    rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
-    last_map_state = states.get_map_state();
-    states.ekf_update(t, measure_d, measure_angle);
+    rad_left_accumu += rad_left_diff;
+    rad_right_accumu += rad_right_diff;
   }
 }
 
@@ -381,12 +386,13 @@ void Handler::pub_slam_obst_marker() {
     marker.ns = "slam_obst";
     marker.id = i;
     marker.type = visualization_msgs::Marker::CYLINDER;
-    if (seen(i) == true) {
-      marker.action = visualization_msgs::Marker::ADD;
-    }
-    else {
-      marker.action = visualization_msgs::Marker::DELETE;
-    }
+    marker.action = visualization_msgs::Marker::ADD;
+    // if (seen(i) == true) {
+    //   marker.action = visualization_msgs::Marker::ADD;
+    // }
+    // else {
+    //   marker.action = visualization_msgs::Marker::DELETE;
+    // }
     marker.pose.position.x = map_state[2*i];
     marker.pose.position.y = map_state[2*i+1];
     marker.pose.position.z = 0.5;
@@ -426,6 +432,86 @@ void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & 
   measure_d = md_tmp;
   measure_angle = ma_tmp;
   // ROS_INFO_STREAM("Check map " << seen.t() << " vs " << measure_d.t());
+}
+
+
+
+/// \brief Callback function for fake_measurement subscriber
+/// \param msg - float array in form {d1, theat_1, d2, theta_2, ...}
+///               where d is the distance theta is the realtive angle to obstacles. 
+/// -1 indicates obstacles that are not seen.  
+void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & msg) {
+  lm_map = msg.data;
+  std::cout << "Check landmarks " << lm_map.t() << std::endl;
+
+  arma::vec map_state_from_lm (lm_map.size());
+  arma::vec robot_state = states.get_robot_state();
+  for(unsigned i = 0; i < lm_map.size()/2; i++) {
+    double mx = robot_state(1) + lm_map(2*i) * cos(lm_map(2*i+1) + robot_state(0));
+    double my = robot_state(2) + lm_map(2*i) * sin(lm_map(2*i+1) + robot_state(0));
+    std::cout << i << " mx my = " << mx << " " << my << std::endl;
+    map_state_from_lm(2*i) = mx;
+    map_state_from_lm(2*i+1) = my;
+  }
+
+  arma::vec map_state = states.get_map_state();
+  arma::vec lm_d (map_state.size()/2);
+  arma::vec lm_angle (map_state.size()/2);
+  lm_d.fill(-1);
+  lm_angle.fill(-1);
+  if (map_state.size() == 0) {
+    // initialize map state
+    states.set_map_state(map_state_from_lm);
+    lm_d.set_size(lm_map.size()/2);
+    lm_angle.set_size(lm_map.size()/2);
+    for (unsigned i = 0; i < lm_map.size()/2; i++) {
+      lm_d(i) = lm_map(2*i);
+      lm_angle(i) = lm_map(2*i+1);
+    }
+  }  
+  else {
+    arma::mat cov = states.get_cov();
+    // std::cout << "cov = " << cov << std::endl;
+
+    // create tmp states
+    arma::vec tmp_map_state (map_state.size()+2);
+    for (unsigned i = 0; i < map_state.size(); i++) {
+      tmp_map_state(i) = map_state(i);
+    }
+
+
+    std::cout << "map_state_from_lm = " << map_state_from_lm.t() << std::endl;
+    for (unsigned i = 0; i < map_state_from_lm.size()/2; i++) {
+      std::cout << "*************" << i << "*************" << std::endl;
+      tmp_map_state(map_state.size()) = map_state_from_lm(2*i);
+      tmp_map_state(map_state.size()+1) = map_state_from_lm(2*i+1);
+
+      kalman::StateVec tmp_states {robot_state, tmp_map_state, state_var, sensor_var};
+      int corres = tmp_states.check_association(cov);
+      std::cout << i << " --> " << corres << " in map" << std::endl;
+
+      if (corres >= lm_d.size()) {
+        lm_d.resize(corres+1);
+        lm_angle.resize(corres+1);
+        states.set_map_state(tmp_map_state);
+      }
+
+      lm_d(corres) = lm_map(2*i);
+      lm_angle(corres) = lm_map(2*i+1);
+
+    }
+  }
+  
+  // calcualte slam turtle 
+  std::cout << "lm_d = " << lm_d.t() << std::endl;
+  std::cout << "lm_angle = " << lm_angle.t() << std::endl;
+  rigid2d::DiffDriveVel vel {rad_left_accumu, rad_right_accumu};
+  rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
+  states.ekf_update(t, lm_d, lm_angle);
+
+  // reset accumulative wheel joints 
+  rad_left_accumu = 0.0;
+  rad_right_accumu = 0.0;
 }
 
 

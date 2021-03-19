@@ -11,6 +11,7 @@
 #include "nuslam/circle.hpp"
 #include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
+#include "std_msgs/Float64MultiArray.h"
 
 /// \brief Helper class for node landmarks
 class Handler {
@@ -43,6 +44,7 @@ class Handler {
     ros::Subscriber joint_states_sub;
     ros::Subscriber laser_scan_sub;
     ros::Publisher circle_obst_pub;
+    ros::Publisher lm_measurenmt_pub;
     //helper functions
     void find_param(ros::NodeHandle & n);
     void joint_states_sub_callback(const sensor_msgs::JointState & msg);
@@ -57,6 +59,7 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius) {
   joint_states_sub = n.subscribe("joint_states", 10, &Handler::joint_states_sub_callback, this);
   laser_scan_sub = n.subscribe("laser_scan", 10, &Handler::laser_scan_sub_callback, this);
   circle_obst_pub = n.advertise<visualization_msgs::MarkerArray>( "circle_obst", 10 );
+  lm_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "lm_measurement", 10 );
 
   while (ros::ok()) {
     find_param(n);
@@ -99,10 +102,13 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
     cluster_center = arma::vec(cluster_groups.size()*2);
     cluster_radius = arma::vec(cluster_groups.size());
     world_center = arma::vec(cluster_groups.size()*2);
+    std_msgs::Float64MultiArray float_array;
+
     for (unsigned i = 0; i < cluster_groups.size(); i++) {
       
       circle::Cluster group {cluster_groups(i)};
       group.fit_circle();
+      cluster_is_circle(i) = group.check_is_circle();
       cluster_center(2*i) = group.get_center_x();
       cluster_center(2*i+1) = group.get_center_y();
       cluster_radius(i) = group.get_circle_radius();
@@ -121,15 +127,13 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       world_center(2*i+1) = center_y;
 
      
-      if (is_simu) { // filter out circle too close to wall or out of range
-        if ( fabs(center_x) >= wall_size-obst_radius*3 || fabs(center_y) >= wall_size-obst_radius*3) {
-          cluster_is_circle(i) = false;
-        }
+      // filter out circle too close to wall or out of range
+      if ( fabs(center_x) >= wall_size*0.9 || fabs(center_y) >= wall_size*0.9) {
+        cluster_is_circle(i) = false;
       }
-      else { // filter out circle that are not arc
-        group.classify_arc();
-        cluster_is_circle(i) = group.check_is_circle();
-      }
+      // filter out circle that are not arc
+      group.classify_arc();
+      cluster_is_circle(i) = group.check_is_circle();
 
       // check circle radius 
       if (cluster_radius(i) > obst_radius*1.5 || cluster_radius(i) < obst_radius*0.5) {
@@ -144,11 +148,24 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       }
 
       if (cluster_is_circle(i)) {
-        std::cout << "center = " << world_center(2*i) << " " << world_center(2*i+1) << std::endl;
-        std::cout << "circle_r = " << cluster_radius(i) << std::endl;
+        std::cout << "--- center = " << world_center(2*i) << " " << world_center(2*i+1);
+        std::cout << "  circle_r = " << cluster_radius(i) << std::endl;
+
+        // lm_measurement info
+        double x_dist = center_x - config.x();
+        double y_dist = center_y - config.y();
+        double measure_dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+        double angle = atan2(y_dist, x_dist) - config.theta();
+        angle = rigid2d::normalize_angle(angle);
+        double dist = sqrt(pow(x_dist, 2) + pow(y_dist, 2));
+
+        float_array.data.push_back(measure_dist);
+        float_array.data.push_back(angle);
       }
 
     }
+    lm_measurenmt_pub.publish(float_array);
+
 
 }
 

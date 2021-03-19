@@ -93,6 +93,10 @@ namespace kalman {
             /// \brief Get map state of model
             /// \return map state
             arma::vec get_map_state();
+
+            /// \brief Get covariance matrix of model
+            /// \return covariance matrix
+            arma::mat get_cov();
             
             /// \brief Set map state of model
             /// \param ms - new map state
@@ -110,6 +114,8 @@ namespace kalman {
             /// \param state_nv - Gaussian noise variance in states
             /// \param sensor_nv - Gaussian noise variance in sensor measurement 
             void set_noises(double state_nv, double sensor_nv);
+
+            int check_association(arma::mat latest_cov);
             
     };
 

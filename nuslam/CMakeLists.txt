@@ -138,8 +138,8 @@ include_directories(
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-  src/kalman.cpp
   src/circle.cpp
+  src/kalman.cpp
 )
 
 ## Add cmake target dependencies of the library
