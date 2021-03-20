@@ -126,14 +126,15 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       world_center(2*i) = center_x;
       world_center(2*i+1) = center_y;
 
+
+      // filter out circle that are not arc
+      group.classify_arc();
+      cluster_is_circle(i) = group.check_is_circle();
      
       // filter out circle too close to wall or out of range
       if ( fabs(center_x) >= wall_size*0.9 || fabs(center_y) >= wall_size*0.9) {
         cluster_is_circle(i) = false;
       }
-      // filter out circle that are not arc
-      group.classify_arc();
-      cluster_is_circle(i) = group.check_is_circle();
 
       // check circle radius 
       if (cluster_radius(i) > obst_radius*1.5 || cluster_radius(i) < obst_radius*0.5) {
@@ -148,8 +149,8 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       }
 
       if (cluster_is_circle(i)) {
-        std::cout << "--- center = " << world_center(2*i) << " " << world_center(2*i+1);
-        std::cout << "  circle_r = " << cluster_radius(i) << std::endl;
+        std::cout << "--- center = " << world_center(2*i) << " " << world_center(2*i+1) << std::endl;
+        // std::cout << "  circle_r = " << cluster_radius(i) << std::endl;
 
         // lm_measurement info
         double x_dist = center_x - config.x();

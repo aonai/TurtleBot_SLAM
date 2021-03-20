@@ -432,7 +432,7 @@ void Handler::check_collision(double period_secs) {
       dist = robot_radius+obst_radius - dist;
       dist /= period_secs;
       double angle = atan2(dist_y, dist_x);
-      double sign = angle/abs(angle);
+      double sign = angle/fabs(angle);
       double tx = -sign*dist*sin(angle)/period_secs;
       double tomg = sign*0.5;
 
@@ -573,10 +573,62 @@ void Handler::timer_callback(const ros::TimerEvent& event){
         laser_angle += rigid2d::PI * 2;
       } 
 
-      if (rigid2d::almost_equal(angle, laser_angle, 0.08/measure_dist)) {
-        r = measure_dist - 1.2 * obst_radius;
-        r *= (1 + 10*pow(fabs(laser_angle - angle),2));
+      if (rigid2d::almost_equal(angle, laser_angle, 0.1)) {
+        // r = measure_dist - 1.2 * obst_radius;
+        // r *= (1 + 10*pow(fabs(laser_angle - angle),2));
         // r *= (1 + fabs(laser_angle - angle));
+
+        rigid2d::Vector2D v_wall {mx, my};
+        rigid2d::Transform2D T_wall {v_wall};
+        rigid2d::Vector2D v_land {x_coords[j], y_coords[j]};
+        rigid2d::Transform2D T_land {v_land};
+
+        rigid2d::Transform2D T_land_wall = T_land.inv() * T_wall;
+        rigid2d::Transform2D T_land_turtle = T_land.inv() * config;
+        // ROS_INFO_STREAM("wall =  " << T_wall << " --- land = " << T_land);
+        // ROS_INFO_STREAM("T_land_wall " << T_land_wall);
+        // ROS_INFO_STREAM("T_land_turtle " << T_land_turtle);
+
+        double x1 = T_land_wall.x();
+        double y1 = T_land_wall.y();
+        double x2 = T_land_turtle.x();
+        double y2 = T_land_turtle.y();
+
+        double dx = x2-x1;
+        double dy = y2-y1;
+        double dr = sqrt(pow(dx,2)+pow(dy,2));
+        double D = x1*y2 - x2*y1;
+        double discri = pow(obst_radius,2)*pow(dr,2) - pow(D,2);
+        // ROS_INFO_STREAM("discri = " << discri);
+
+        if (discri > 0) {
+          int sign = 1;
+          if (dy < 0) {
+            sign = -1;
+          }
+
+          double inters_x_1 = (D * dy + sign * dx * sqrt(discri))/pow(dr,2);
+          double inters_x_2 = (D * dy - sign * dx * sqrt(discri))/pow(dr,2);
+          double inters_y_1 = (-D * dx + fabs(dy) * sqrt(discri))/pow(dr,2);
+          double inters_y_2 = (-D * dx - fabs(dy) * sqrt(discri))/pow(dr,2);
+          // ROS_INFO_STREAM("intersect = " << inters_x_1 << " " << inters_y_1 << " OR " << inters_x_2 << " " << inters_y_2);
+
+          rigid2d::Vector2D v1 {inters_x_1, inters_y_1};
+          rigid2d::Transform2D T1 {v1};
+          rigid2d::Vector2D v2 {inters_x_2, inters_y_2};
+          rigid2d::Transform2D T2 {v2};
+
+          rigid2d::Transform2D T_turtle_1 = T_land_turtle.inv() * T1;
+          rigid2d::Transform2D T_turtle_2 = T_land_turtle.inv() * T2;
+          // ROS_INFO_STREAM("T1 " << T_turtle_1);
+          // ROS_INFO_STREAM("T2 " << T_turtle_2);
+
+          double r1 = sqrt(pow(T_turtle_1.x(),2)+pow(T_turtle_1.y(),2));
+          double r2 = sqrt(pow(T_turtle_2.x(),2)+pow(T_turtle_2.y(),2));
+          r = fmin(r1, r2);
+
+        }
+
         break;
       }
     }

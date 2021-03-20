@@ -442,7 +442,7 @@ void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & 
 /// -1 indicates obstacles that are not seen.  
 void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & msg) {
   lm_map = msg.data;
-  std::cout << "Check landmarks " << lm_map.t() << std::endl;
+  // std::cout << "Check landmarks " << lm_map.t() << std::endl;
 
   arma::vec map_state_from_lm (lm_map.size());
   arma::vec robot_state = states.get_robot_state();
@@ -467,6 +467,7 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
     for (unsigned i = 0; i < lm_map.size()/2; i++) {
       lm_d(i) = lm_map(2*i);
       lm_angle(i) = lm_map(2*i+1);
+      lm_angle(i) = rigid2d::normalize_angle(lm_angle(i));
     }
   }  
   else {
@@ -489,16 +490,17 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
       kalman::StateVec tmp_states {robot_state, tmp_map_state, state_var, sensor_var};
       int corres = tmp_states.check_association(cov);
       std::cout << i << " --> " << corres << " in map" << std::endl;
-
-      if (corres >= lm_d.size()) {
-        lm_d.resize(corres+1);
-        lm_angle.resize(corres+1);
-        states.set_map_state(tmp_map_state);
+      
+      if (corres >= 0) {
+        if (corres >= lm_d.size()) {
+          lm_d.resize(corres+1);
+          lm_angle.resize(corres+1);
+          states.set_map_state(tmp_map_state);
+        }
+        lm_d(corres) = lm_map(2*i);
+        lm_angle(corres) = lm_map(2*i+1);
+        lm_angle(corres) = rigid2d::normalize_angle(lm_angle(corres));
       }
-
-      lm_d(corres) = lm_map(2*i);
-      lm_angle(corres) = lm_map(2*i+1);
-
     }
   }
   

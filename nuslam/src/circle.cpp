@@ -236,21 +236,27 @@ namespace circle {
             double p2x = x_arr(x_arr.size()-1);
             double p2y = y_arr(y_arr.size()-1);
             arma::vec p_ang (x_arr.size());
-            for (unsigned j = 0; j < x_arr.size(); j++) {
-                double d1 = sqrt(pow(p1x-x_arr(j),2) + pow(p1y-y_arr(j),2));
-                double d2 = sqrt(pow(p2x-x_arr(j),2) + pow(p2y-y_arr(j),2));
-                p_ang(j) = rigid2d::PI - atan2(d2, d1) - atan2(d1,d2);
+            for (unsigned j = 1; j < x_arr.size()-1; j++) {
+                double px = x_arr(j);
+                double py = y_arr(j);
+
+                double x1 = px - p1x;
+                double y1 = py - p1y;
+                double d1 = sqrt(pow(x1,2)+pow(y1,2));
+                double x2 = px - p2x;
+                double y2 = py - p2y;
+                double d2 = sqrt(pow(x2,2)+pow(y2,2));
+                double cos_ang = (x1*x2 + y1*y2)/(d1*d2);
+                p_ang(j) = acos(cos_ang);
             }
             double ang_mean = arma::mean(p_ang) * 180/rigid2d::PI;
             double ang_std = arma::stddev(p_ang);
             // std::cout << " mean = " << ang_mean << " std_dev = " << ang_std << " R = " << circle_radius << std::endl;
 
-            // if (ang_std > 0.5 || fabs(ang_mean) <= 90 || fabs(ang_mean) >= 135) {
-            // if (ang_std > 0.6) {
-            //     is_circle = false;
-            // }
+            if (ang_std > 1.5 || fabs(ang_mean) <= 75 || fabs(ang_mean) >= 135) {
+                is_circle = false;
+            }
 
-       
         }
     }
     

@@ -10,20 +10,20 @@
     <param name="left_wheel_joint_slip" value="wheel_left_link_slip" type="string"/>
     <param name="right_wheel_joint_slip" value="wheel_right_link_slip" type="string"/>
     <param name="noise_mean" value="0.0" type="double"/>
-    <param name="noise_variance" value="0.0" type="double"/>
-    <param name="slip_min" value="-0.0" type="double"/>
-    <param name="slip_max" value="0.0" type="double"/>
+    <param name="noise_variance" value="0.01" type="double"/>
+    <param name="slip_min" value="-0.01" type="double"/>
+    <param name="slip_max" value="0.01" type="double"/>
     <!-- <rosparam param="x_coords">[-1.0, -2.0, 3.0, 2.3, 2.3, -1.2, 0.9, -1.4, 1.3]</rosparam>
     <rosparam param="y_coords">[-0.5, -2.0, 2.5, -3.6, -1.3, 3.1, 4.3, 2.2, 0.5]</rosparam> -->
-    <rosparam param="x_coords">[1.0, -1.0, 0.5, -1.3]</rosparam>
-    <!-- <rosparam param="x_coords">[1.0, -1.0]</rosparam> -->
-    <rosparam param="y_coords">[0.5, -1.0, 2.0, 0.8]</rosparam>
-    <!-- <rosparam param="y_coords">[0.5, -1.0]</rosparam> -->
+    <!-- <rosparam param="x_coords">[1.0, -1.0, -0.8, 0.4, -1.4]</rosparam> -->
+    <!-- <rosparam param="y_coords">[0.5, -1.0, 0.3, -1.0, 1.3]</rosparam> -->
+    <rosparam param="x_coords">[1.0, -1.0, -0.8, 1.3, 0.3]</rosparam>
+    <rosparam param="y_coords">[0.5, -0.8, 0.3, -1.0, 1.0]</rosparam>
     <rosparam param="covariance_matrix_0">[1.0, 1.0]</rosparam>
     <rosparam param="covariance_matrix_1">[1.0, 1.0]</rosparam>
     <param name="obst_radius" value="0.0762" type="double"/>
     <param name="obst_max_dist" value="3.0" type="double"/>
-    <param name="tube_var" value="0.0" type="double"/>
+    <param name="tube_var" value="0.01" type="double"/>
     <param name="use_odom" value="true" type="bool" if="$(arg use_odom)"/>
     <param name="use_odom" value="false" type="bool" unless="$(arg use_odom)"/>
     <param name="laser_range_min" value="0.12" type="double"/>
@@ -32,7 +32,7 @@
     <param name="laser_angle_increment" value="0.01744" type="double"/>
     <param name="laser_samples_num" value="360" type="int"/>
     <param name="laser_resolution" value="0.015" type="double"/>
-    <param name="laser_noise_level" value="0.0" type="double"/>
+    <param name="laser_noise_level" value="0.005" type="double"/>
     <param name="wall_size" value="2.5" type="double"/>
     
 
