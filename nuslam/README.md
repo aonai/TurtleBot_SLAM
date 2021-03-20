@@ -43,7 +43,7 @@ Robot is driving in the real world with 5 unkwnon tubes as landmarks. The gif be
 
 Screenshot of rviz after robot driving in the real world with unknown data association is shown below. The final pose of slam is (0.041, 0.0050, 3.05). The pose error between the actual robot and odometry is (0.0045, 0.044). The pose error between the actual robot and the slam estimate is (0.00090, 0.0012). 
 ![unknown_real_result](images/unknown_real_result.png)  
-Landmarks labeled below are represent the tubes in real world.
+Landmarks labeled below represent the tubes in real world.
 ![unknown_real_labeled](images/unknown_real_labeled.png)  
 
 
