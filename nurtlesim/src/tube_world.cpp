@@ -10,6 +10,7 @@
  * + real_path (nav_msgs::Path) ~ real pose of turtle with noise
  * + fake_sensor (visualization_msgs::MarkerArray) ~ fake sensor information with noise 
  * + fake_measurement (std_msgs::Float64MultiArray) ~ measured distance and angle from robot to observed obstacles 
+ * + laser_scan (sensor_msgs::LaserScan) ~ laser scan messages with respect of turtle with noise
  * 
  * SUBSRIBERS:
  * + cmd_vel (geometry_msgs::Twist) ~ the velocity of turtle
@@ -33,7 +34,14 @@
  * + obst_radius (double) ~ radius of tube obstacle   
  * + obst_max_dist (double) ~ radius of observation area for robot; obstacles within this range will be used to publish sensor information   
  * + tube_var (double) ~ variance of Gaussian noise for obstacles   
- * 
+ * + use_odom (boolean) ~ whether odom is used. If yes, align world with odom
+ * + laser_range_min (double) ~ minimum range of laser scan
+ * + laser_range_max (double) ~ maximum range of laser scan
+ * + laser_angle_increment (double) ~ angle increment between each measurement in rad
+ * + laser_samples_num (int) ~ number of measurements
+ * + laser_resolution (double) ~ resolution of measurements
+ * + laser_noise_level (double) ~ variance of Gaussian noise in measurements
+ * + wall_size (double) ~ dimension of a wall 
  * 
 **/
 
@@ -493,6 +501,7 @@ void Handler::update_turtle(double period_secs, double omg, double vx, rigid2d::
 
 }
     
+/// \brief Helper function for publishing laser scan message at 5Hz
 void Handler::timer_callback(const ros::TimerEvent& event){
   sensor_msgs::LaserScan laser_scan_msg;
   laser_scan_msg.header.stamp = ros::Time();

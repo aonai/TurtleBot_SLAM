@@ -1,4 +1,29 @@
-
+/**
+ * \brief This node is going to find out landmark locations in world from laser scan messages. 
+ * 
+ * 
+ * PUBLISHERS:
+ * + circle_obst (visualization_msgs::MarkerArray) ~ landmark locations calculated from laser scan messages 
+ * + lm_measurement (std_msgs::Float64MultiArray) ~ distance and angle from robot to landmarks 
+ * 
+ * SUBSRIBERS:
+ * + joint_states (sensor_msgs::JointState) ~ joint states of turtle with and without noise
+ * + laser_scan (sensor_msgs::LaserScan) ~ laser scan messages with respect of turtle with noise
+ *  
+ * 
+ * PARAMETERS:
+ * + wheel_base (string) ~ distance between wheels of robot  
+ * + wheel_radius (string) ~ radius of wheels  
+ * + obst_radius (double) ~ radius of tube obstacle   
+ * + laser_range_min (double) ~ minimum range of laser scan
+ * + laser_range_max (double) ~ maximum range of laser scan
+ * + laser_angle_increment (double) ~ angle increment between each measurement in rad
+ * + laser_samples_num (int) ~ number of measurements
+ * + wall_size (double) ~ dimension of a wall 
+ * + is_simu (bool) ~ whether laser scan messages are generated from simulation
+ * 
+ * 
+**/
 
 #include <string>
 #include <cmath>
@@ -86,6 +111,10 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("is_simu", is_simu, true);
 }
 
+/// \brief Calcualte landmark locations from a laser scan message
+/// First it will group measurements into clusters and check whether a cluster is a circle.
+/// Then, calculate and publish distance and angle from turtle to landmarks. 
+/// \param data - laser scan message
 void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
     laser_data = arma::vec (laser_samples_num);
 
@@ -93,6 +122,7 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
         laser_data(i) = data.ranges[i];
     }
 
+    // group clusters
     arma::vec angles(laser_data.size());
     for (unsigned i = 0; i < angles.size(); i ++) {
       angles(i) = i * laser_angle_increment;

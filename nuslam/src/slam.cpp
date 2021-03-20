@@ -12,6 +12,7 @@
  * SUBSRIBERS:
  * + joint_states (sensor_msgs::JointState) ~ joint states of robot 
  * + fake_measurement (std_msgs::Float64MultiArray) ~ fake sensor information containing relative distance and angle to obstacles 
+ * + lm_measurement (std_msgs::Float64MultiArray) ~ distance and angle from robot to landmarks 
  * 
  * SERVICES:
  * + set_pose (rigid2d::SetPose) ~ reset odometry frame of robot
@@ -436,20 +437,20 @@ void Handler::fake_measurement_sub_callback(const std_msgs::Float64MultiArray & 
 
 
 
-/// \brief Callback function for fake_measurement subscriber
+/// \brief Callback function for lm_measurement subscriber
 /// \param msg - float array in form {d1, theat_1, d2, theta_2, ...}
-///               where d is the distance theta is the realtive angle to obstacles. 
-/// -1 indicates obstacles that are not seen.  
+///               where d is the distance theta is the realtive angle to landmarks.   
 void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & msg) {
   lm_map = msg.data;
   // std::cout << "Check landmarks " << lm_map.t() << std::endl;
 
+  // convert measurements to map state
   arma::vec map_state_from_lm (lm_map.size());
   arma::vec robot_state = states.get_robot_state();
   for(unsigned i = 0; i < lm_map.size()/2; i++) {
     double mx = robot_state(1) + lm_map(2*i) * cos(lm_map(2*i+1) + robot_state(0));
     double my = robot_state(2) + lm_map(2*i) * sin(lm_map(2*i+1) + robot_state(0));
-    std::cout << i << " mx my = " << mx << " " << my << std::endl;
+    // std::cout << i << " mx my = " << mx << " " << my << std::endl;
     map_state_from_lm(2*i) = mx;
     map_state_from_lm(2*i+1) = my;
   }
@@ -459,8 +460,7 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
   arma::vec lm_angle (map_state.size()/2);
   lm_d.fill(-1);
   lm_angle.fill(-1);
-  if (map_state.size() == 0) {
-    // initialize map state
+  if (map_state.size() == 0) { // initialize map state
     states.set_map_state(map_state_from_lm);
     lm_d.set_size(lm_map.size()/2);
     lm_angle.set_size(lm_map.size()/2);
@@ -470,7 +470,7 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
       lm_angle(i) = rigid2d::normalize_angle(lm_angle(i));
     }
   }  
-  else {
+  else { // data association
     arma::mat cov = states.get_cov();
     // std::cout << "cov = " << cov << std::endl;
 
@@ -480,10 +480,9 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
       tmp_map_state(i) = map_state(i);
     }
 
-
+    // check data association
     std::cout << "map_state_from_lm = " << map_state_from_lm.t() << std::endl;
     for (unsigned i = 0; i < map_state_from_lm.size()/2; i++) {
-      std::cout << "*************" << i << "*************" << std::endl;
       tmp_map_state(map_state.size()) = map_state_from_lm(2*i);
       tmp_map_state(map_state.size()+1) = map_state_from_lm(2*i+1);
 
@@ -505,8 +504,8 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
   }
   
   // calcualte slam turtle 
-  std::cout << "lm_d = " << lm_d.t() << std::endl;
-  std::cout << "lm_angle = " << lm_angle.t() << std::endl;
+  // std::cout << "lm_d = " << lm_d.t() << std::endl;
+  // std::cout << "lm_angle = " << lm_angle.t() << std::endl;
   rigid2d::DiffDriveVel vel {rad_left_accumu, rad_right_accumu};
   rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
   states.ekf_update(t, lm_d, lm_angle);

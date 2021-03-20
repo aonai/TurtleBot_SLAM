@@ -115,6 +115,11 @@ namespace kalman {
             /// \param sensor_nv - Gaussian noise variance in sensor measurement 
             void set_noises(double state_nv, double sensor_nv);
 
+            /// \brief Check whether the last landmark in map state
+            /// belongs to a known landmark
+            /// \param latest_cov - latests cov without the temporary landmark
+            /// \return index corresponding to a known landmark.
+            ///         If the last landmark is new, return index = number of landmarks
             int check_association(arma::mat latest_cov);
             
     };

@@ -311,10 +311,11 @@ namespace kalman {
         // std::cout << "min = " << min_d << " at " << min_idx << std::endl;
 
         if (min_d > 10) {
-            std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
+            // std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
             return map_state.size()/2-1;
         }
-        else if (min_d < 0.5) {
+        // else if (min_d < 0.5) {
+        else {
             return min_idx;
         }
         
