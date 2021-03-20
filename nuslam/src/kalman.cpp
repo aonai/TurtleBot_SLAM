@@ -210,7 +210,14 @@ namespace kalman {
     void StateVec::set_map_state(arma::vec ms) {
         map_state = ms;
         std::cout << "set ms " << map_state.t() << std::endl;
+        arma::mat last_cov = cov_mat;
         reset_cov();
+        for (unsigned i = 0; i < last_cov.n_rows; i++) {
+            for (unsigned j = 0; j < last_cov.n_cols; j++) {
+                cov_mat(i, j) = last_cov(i, j);
+            }
+        }
+        std::cout << "new voc " << cov_mat << std::endl;
     }
 
     void StateVec::set_robot_state(arma::vec rs) {
@@ -308,10 +315,10 @@ namespace kalman {
         
         double min_d = mah_dist.min();
         double min_idx = mah_dist.index_min();
-        // std::cout << "min = " << min_d << " at " << min_idx << std::endl;
+        std::cout << "min = " << min_d << " at " << min_idx << std::endl;
 
         if (min_d > 10) {
-            // std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
+            std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
             return map_state.size()/2-1;
         }
         // else if (min_d < 0.5) {

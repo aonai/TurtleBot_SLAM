@@ -504,8 +504,8 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
   }
   
   // calcualte slam turtle 
-  // std::cout << "lm_d = " << lm_d.t() << std::endl;
-  // std::cout << "lm_angle = " << lm_angle.t() << std::endl;
+  std::cout << "lm_d = " << lm_d.t() << std::endl;
+  std::cout << "lm_angle = " << lm_angle.t() << std::endl;
   rigid2d::DiffDriveVel vel {rad_left_accumu, rad_right_accumu};
   rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
   states.ekf_update(t, lm_d, lm_angle);

@@ -27,8 +27,8 @@
     <param name="use_odom" value="true" type="bool" if="$(arg use_odom)"/>
     <param name="use_odom" value="false" type="bool" unless="$(arg use_odom)"/>
     <param name="laser_range_min" value="0.12" type="double"/>
-    <param name="laser_range_max" value="3.5" type="double"/>
-    <!-- <param name="laser_range_max" value="1.0" type="double"/> -->
+    <!-- <param name="laser_range_max" value="3.5" type="double"/> -->
+    <param name="laser_range_max" value="1.0" type="double"/>
     <param name="laser_angle_increment" value="0.01744" type="double"/>
     <param name="laser_samples_num" value="360" type="int"/>
     <param name="laser_resolution" value="0.015" type="double"/>
