@@ -35,6 +35,7 @@
  * + obst_max_dist (double) ~ radius of observation area for robot; obstacles within this range will be used to publish sensor information   
  * + tube_var (double) ~ variance of Gaussian noise for obstacles   
  * + use_odom (boolean) ~ whether odom is used. If yes, align world with odom
+ * + use_fake (boolean) ~ whether to fake or laser measurements
  * + laser_range_min (double) ~ minimum range of laser scan
  * + laser_range_max (double) ~ maximum range of laser scan
  * + laser_angle_increment (double) ~ angle increment between each measurement in rad
@@ -103,6 +104,8 @@ class Handler {
     double laser_resolution = 0.015;
     double laser_noise_level = 0.0;
     double wall_size = 2.5;  
+    bool use_fake = false;
+    bool init = true;
     arma::vec x_arr;
     arma::vec y_arr;
     // ROS members     
@@ -142,11 +145,16 @@ Handler::Handler(ros::NodeHandle & n) : fake(wheel_base/2, wheel_radius), fake_s
   path_msg.header.frame_id="world"; 
   fake_sensor_pub = n.advertise<visualization_msgs::MarkerArray>( "fake_sensor", 10 );
   fake_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "fake_measurement", 10 );
-  laser_scan_pub = n.advertise<sensor_msgs::LaserScan>( "laser_scan", 10 );
-  timer =  n.createTimer(ros::Duration(0.2), &Handler::timer_callback, this);
-
+  
   while (ros::ok()) {
     find_param(n);
+
+    if (use_fake ==false && init) {
+      laser_scan_pub = n.advertise<sensor_msgs::LaserScan>( "laser_scan", 10 );
+      timer =  n.createTimer(ros::Duration(0.2), &Handler::timer_callback, this);
+      init = false;
+    }
+
 
     pub_fake_sensor();
     pub_joint_state();
@@ -199,6 +207,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("obst_max_dist", obst_max_dist, 2.0);
   n.param("tube_var", tube_var, 0.01);
   n.param("use_odom", use_odom, false);
+  n.param("use_fake", use_fake, false);
   n.param("laser_range_min", laser_range_min, 0.12);
   n.param("laser_range_max", laser_range_max, 3.5);
   n.param("laser_angle_increment", laser_angle_increment, 0.01744);
@@ -309,6 +318,20 @@ void Handler::tf_broadcast() {
   tmp.transform.rotation.z = 0.0;
   tmp.transform.rotation.w = 1.0;
   br.sendTransform(tmp);
+
+  // tf from turtle to laser
+  geometry_msgs::TransformStamped tmp2;
+  tmp2.header.stamp = ros::Time::now();
+  tmp2.header.frame_id = "base_footprint";
+  tmp2.child_frame_id = "laser";
+  tmp2.transform.translation.x = 0.0;
+  tmp2.transform.translation.y = 0.0;
+  tmp2.transform.translation.z = 0.0;
+  tmp2.transform.rotation.x = 0.0;
+  tmp2.transform.rotation.y = 0.0;
+  tmp2.transform.rotation.z = 0.0;
+  tmp2.transform.rotation.w = 1.0;
+  br.sendTransform(tmp2);
 }
 
 /// \brief Helper function for publishing real_path information from fake_slip turtle 

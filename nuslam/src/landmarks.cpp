@@ -8,7 +8,7 @@
  * 
  * SUBSRIBERS:
  * + joint_states (sensor_msgs::JointState) ~ joint states of turtle with and without noise
- * + laser_scan (sensor_msgs::LaserScan) ~ laser scan messages with respect of turtle with noise
+ * + "laser_scan" or "scan" (sensor_msgs::LaserScan) ~ laser scan messages with respect to turtle
  *  
  * 
  * PARAMETERS:
@@ -20,7 +20,7 @@
  * + laser_angle_increment (double) ~ angle increment between each measurement in rad
  * + laser_samples_num (int) ~ number of measurements
  * + wall_size (double) ~ dimension of a wall 
- * + is_simu (bool) ~ whether laser scan messages are generated from simulation
+ * + is_simu (bool) ~ whether laser scan messages are generated from simulation or real world
  * 
  * 
 **/
@@ -58,6 +58,7 @@ class Handler {
     double rad_right_thresh = 0.0;
     double rad_left_old = 0.0;
     double rad_right_old = 0.0;
+    bool init = true;
     arma::vec laser_data;
     double laser_cluster_threshold = 0.05;
     rigid2d::DiffDrive odom;
@@ -82,13 +83,20 @@ class Handler {
 /// \param n - landmarks NodeHandle
 Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius) {
   joint_states_sub = n.subscribe("joint_states", 10, &Handler::joint_states_sub_callback, this);
-  laser_scan_sub = n.subscribe("laser_scan", 10, &Handler::laser_scan_sub_callback, this);
   circle_obst_pub = n.advertise<visualization_msgs::MarkerArray>( "circle_obst", 10 );
   lm_measurenmt_pub =  n.advertise<std_msgs::Float64MultiArray>( "lm_measurement", 10 );
 
   while (ros::ok()) {
     find_param(n);
     pub_circle_marker();
+    if (is_simu && init) {
+      laser_scan_sub = n.subscribe("laser_scan", 10, &Handler::laser_scan_sub_callback, this);
+      init = false;
+    }
+    else if (is_simu == false && init) {
+      laser_scan_sub = n.subscribe("scan", 10, &Handler::laser_scan_sub_callback, this);
+      init = false;
+    }
 
     ros::Rate loop_rate(10);
     ros::spinOnce();
@@ -179,7 +187,7 @@ void Handler::laser_scan_sub_callback(const sensor_msgs::LaserScan & data) {
       }
 
       if (cluster_is_circle(i)) {
-        std::cout << "--- center = " << world_center(2*i) << " " << world_center(2*i+1) << std::endl;
+        // std::cout << "--- center = " << world_center(2*i) << " " << world_center(2*i+1) ;
         // std::cout << "  circle_r = " << cluster_radius(i) << std::endl;
 
         // lm_measurement info

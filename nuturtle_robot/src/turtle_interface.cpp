@@ -109,6 +109,7 @@ void Handler::pub_wheel_cmd() {
 /// Wheel velocities should not exceed maximum rotational velocity of turtle.
 /// \param vel - velocity of turtle
 void Handler::cmd_vel_sub_callback(const geometry_msgs::Twist  & vel) {
+    
     double omg = vel.angular.z;
     double vx = vel.linear.x;
 

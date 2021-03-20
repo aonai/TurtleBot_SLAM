@@ -209,7 +209,7 @@ namespace kalman {
     
     void StateVec::set_map_state(arma::vec ms) {
         map_state = ms;
-        std::cout << "set ms " << map_state.t() << std::endl;
+        // std::cout << "set ms " << map_state.t() << std::endl;
         arma::mat last_cov = cov_mat;
         reset_cov();
         for (unsigned i = 0; i < last_cov.n_rows; i++) {
@@ -217,7 +217,7 @@ namespace kalman {
                 cov_mat(i, j) = last_cov(i, j);
             }
         }
-        std::cout << "new voc " << cov_mat << std::endl;
+        // std::cout << "new voc " << cov_mat << std::endl;
     }
 
     void StateVec::set_robot_state(arma::vec rs) {
@@ -274,7 +274,7 @@ namespace kalman {
     }
 
     int StateVec::check_association(arma::mat latest_cov) {
-        std::cout << "@asso ms = " << map_state.t() << std::endl;
+        // std::cout << "@asso ms = " << map_state.t() << std::endl;
 
         for (unsigned i = 0; i < latest_cov.n_rows; i++) {
             for (unsigned j = 0; j < latest_cov.n_cols; j++) {
@@ -315,13 +315,12 @@ namespace kalman {
         
         double min_d = mah_dist.min();
         double min_idx = mah_dist.index_min();
-        std::cout << "min = " << min_d << " at " << min_idx << std::endl;
+        // std::cout << "min = " << min_d << " at " << min_idx << std::endl;
 
-        if (min_d > 10) {
-            std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
+        if (min_d > 25) {
+            // std::cout << "!!!!!!!!!!!!!!!!!! NEW" << std::endl;
             return map_state.size()/2-1;
         }
-        // else if (min_d < 0.5) {
         else {
             return min_idx;
         }

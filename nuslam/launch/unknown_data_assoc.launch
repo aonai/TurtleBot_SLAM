@@ -2,14 +2,19 @@
     <arg name="use_odom" default="false" doc="whether to use odometer or slam node"/>
     <arg name="robot" default="localhost" doc="hostname of turtlebot" />
     <arg name="use_tube_world" default="false" doc="whether to use turbe_world node" />
+    <arg name="use_fake" default="false" doc="whether to fake or laser measurement"/>
+    <arg name="simulate" default="false" doc="use simulation or turtlebot" />
+
 
     <include file="$(find nuslam)/launch/slam.launch">
         <arg name="use_odom" value="$(arg use_odom)"/>
         <arg name="robot" value="$(arg robot)"/>
+        <arg name="use_fake" value="$(arg use_fake)"/>
     </include>
 
     <include file="$(find nuslam)/launch/landmark_detect.launch">
         <arg name="use_tube_world" value="$(arg use_tube_world)"/>
+        <arg name="simulate" value="$(arg simulate)"/>
     </include>
 
 

@@ -33,6 +33,7 @@
  * + obst_radius (double) ~ radius of tube obstacle   
  * + state_var (double) ~ variance of Gaussian noise for Kalman states   
  * + sensor_var (double) ~ variance of Gaussian noise for sensors   
+ * + use_fake (boolean) ~ whether to fake or laser measurements
  * 
  * 
  * 
@@ -84,6 +85,7 @@ class Handler {
     double sensor_var = 0.001;
     double rad_left_accumu = 0.0;
     double rad_right_accumu = 0.0;
+    bool use_fake = false;
     arma::vec seen;
     arma::vec init_map_state;
     rigid2d::DiffDrive odom;
@@ -131,8 +133,6 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
   slam_path_msg.header.stamp=ros::Time::now();
   slam_path_msg.header.frame_id="world"; 
   slam_obst_pub = n.advertise<visualization_msgs::MarkerArray>( "slam_obst", 10 );
-  // fake_measurenmt_sub = n.subscribe("fake_measurement", 10, &Handler::fake_measurement_sub_callback, this);
-  lm_measurenmt_sub = n.subscribe("lm_measurement", 10, &Handler::lm_measurement_sub_callback, this);
 
   while (ros::ok()) {
     find_param(n);
@@ -141,19 +141,24 @@ Handler::Handler(ros::NodeHandle & n) : odom(wheel_base/2, wheel_radius), \
     states.set_noises(state_var, sensor_var);
 
     // initialize Kalman slam
-    // if (init) {
-    //   last_map_state = init_map_state;
-    //   seen = arma::vec (init_map_state.size()/2);
-    //   seen.fill(false);
-    //   states.set_map_state(init_map_state);
+    if (init && use_fake) {
+      fake_measurenmt_sub = n.subscribe("fake_measurement", 10, &Handler::fake_measurement_sub_callback, this);
+      last_map_state = init_map_state;
+      seen = arma::vec (init_map_state.size()/2);
+      seen.fill(false);
+      states.set_map_state(init_map_state);
 
-    //   measure_d = arma::vec (x_coords.size());
-    //   measure_angle = arma::vec (x_coords.size());
-    //   measure_d.fill(-1);
-    //   measure_angle.fill(-1);
+      measure_d = arma::vec (x_coords.size());
+      measure_angle = arma::vec (x_coords.size());
+      measure_d.fill(-1);
+      measure_angle.fill(-1);
 
-    //   init = false;
-    // }
+      init = false;
+    }
+    else if (init && use_fake ==false) {
+      lm_measurenmt_sub = n.subscribe("lm_measurement", 10, &Handler::lm_measurement_sub_callback, this);
+      init = false;
+    }
 
     pub_odom();
     pub_slam_obst_marker();
@@ -238,6 +243,7 @@ void Handler::find_param(ros::NodeHandle & n) {
   n.param("obst_radius", obst_radius, 0.0762);
   n.param("state_var", state_var, 0.01);
   n.param("sensor_var", sensor_var, 0.001);
+  n.param("use_fake", use_fake, true);
 
 
   init_map_state = arma::vec (x_coords.size()*2);
@@ -279,10 +285,18 @@ void Handler::joint_states_sub_callback(const sensor_msgs::JointState & msg) {
     rad_left_slip_old = rad_left_slip;
     rad_right_slip_old = rad_right_slip;
 
-
     // calcualte slam turtle 
-    rad_left_accumu += rad_left_diff;
-    rad_right_accumu += rad_right_diff;
+    if (use_fake) {
+      rigid2d::DiffDriveVel vel {rad_left_accumu, rad_right_accumu};
+      rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
+      states.ekf_update(t, measure_d, measure_angle);
+    }
+    else {
+      rad_left_accumu += rad_left_diff;
+      rad_right_accumu += rad_right_diff;
+    }
+
+
   }
 }
 
@@ -481,14 +495,14 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
     }
 
     // check data association
-    std::cout << "map_state_from_lm = " << map_state_from_lm.t() << std::endl;
+    // std::cout << "map_state_from_lm = " << map_state_from_lm.t() << std::endl;
     for (unsigned i = 0; i < map_state_from_lm.size()/2; i++) {
       tmp_map_state(map_state.size()) = map_state_from_lm(2*i);
       tmp_map_state(map_state.size()+1) = map_state_from_lm(2*i+1);
 
       kalman::StateVec tmp_states {robot_state, tmp_map_state, state_var, sensor_var};
       int corres = tmp_states.check_association(cov);
-      std::cout << i << " --> " << corres << " in map" << std::endl;
+      // std::cout << i << " --> " << corres << " in map" << std::endl;
       
       if (corres >= 0) {
         if (corres >= lm_d.size()) {
@@ -504,8 +518,8 @@ void Handler::lm_measurement_sub_callback(const std_msgs::Float64MultiArray & ms
   }
   
   // calcualte slam turtle 
-  std::cout << "lm_d = " << lm_d.t() << std::endl;
-  std::cout << "lm_angle = " << lm_angle.t() << std::endl;
+  // std::cout << "lm_d = " << lm_d.t() << std::endl;
+  // std::cout << "lm_angle = " << lm_angle.t() << std::endl;
   rigid2d::DiffDriveVel vel {rad_left_accumu, rad_right_accumu};
   rigid2d::Twist2D t = odom_slip.twist_from_vel(vel);
   states.ekf_update(t, lm_d, lm_angle);

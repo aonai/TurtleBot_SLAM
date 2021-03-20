@@ -8,6 +8,7 @@
 
     <include file="$(find nurtlesim)/launch/tube_world.launch" if="$(arg use_tube_world)">
         <arg name="use_odom" value="$(arg use_odom)"/>
+        <arg name="use_fake" value="false"/>
     </include>
 
     <node name="landmarks" pkg="nuslam" type="landmarks"  output="screen" />

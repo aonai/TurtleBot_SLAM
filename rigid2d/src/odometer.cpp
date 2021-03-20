@@ -99,6 +99,19 @@ void Handler::pub_odom() {
   odom_msg.pose.pose.orientation.z = q.z();
   odom_msg.pose.pose.orientation.w = q.w();
   odom_pub.publish(odom_msg);
+
+  geometry_msgs::TransformStamped tmp;
+  tmp.header.stamp = ros::Time::now();
+  tmp.header.frame_id = odom_frame_id;
+  tmp.child_frame_id = "laser";
+  tmp.transform.translation.x = 0.0;
+  tmp.transform.translation.y = 0.0;
+  tmp.transform.translation.z = 0.0;
+  tmp.transform.rotation.x = 0.0;
+  tmp.transform.rotation.y = 0.0;
+  tmp.transform.rotation.z = 0.0;
+  tmp.transform.rotation.w = 1.0;
+  br.sendTransform(tmp);
 }
 
 /// \brief Find parameters odom_frame_id, body_frame_id, left_wheel_joint, right_wheel_joint, 
